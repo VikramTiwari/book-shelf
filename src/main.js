@@ -190,6 +190,8 @@ function processBooks(data) {
     // Create Single Book
     // Use import
     const { mesh, thickness, height, width } = createBook(mostRecentBook);
+    console.log("Rendering Book:", mostRecentBook.Title);
+    console.log("Cover URL:", mostRecentBook.CoverUrl);
     
     scene.add(mesh);
     mesh.position.set(0, 0, 0);
@@ -197,26 +199,15 @@ function processBooks(data) {
     // Setup Interaction: Allow rotation
     // OrbitControls target at 0,0,0
     controls.target.set(0, 0, 0);
-    controls.enableRotate = false; // Disable Camera Orbit
+    controls.enableRotate = false; // Disable Camera Orbit (Custom drag logic handles book rotation)
     controls.enableZoom = false; 
     controls.enablePan = false;
 
     window.currentBookMesh = mesh;
 
-    
-    // Set auto rotation? Or just let user rotate.
-    // User: "user should be able to rotate the book in all 360 deg"
-    // So just enableRotate is enough.
-    
     // Position Camera
-    // We want to see the Front Cover initially.
-    // In createBook, we mapped Front Cover to +X (px).
-    // So we should look from +X direction?
-    // Let's verify:
-    // px (Right) -> Front Cover.
-    // So camera should be at (X>0, 0, 0) looking at (0,0,0).
-    // Let's place it at (0.8, 0, 0) or similar.
-    camera.position.set(0.6, 0, 0);
+    // View from Front (+Z)
+    camera.position.set(0, 0, 0.9);
     camera.lookAt(0, 0, 0);
     
     controls.update();
