@@ -1,7 +1,7 @@
 export let allBooksData = [];
 
 export function loadAllBooks() {
-    return fetch('/data.csv')
+    return fetch('./data.csv')
         .then(res => res.text())
         .then(csvText => {
             const data = parseCSV(csvText);

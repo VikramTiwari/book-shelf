@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vik's Books</title>
+    <meta
+      name="description"
+      content="A 3D interactive bookshelf showcasing Vik's book collection. Explore genres, titles, and a unique visual experience."
+    />
+    <meta
+      name="keywords"
+      content="books, 3D, bookshelf, library, reading, Vikram Tiwari, interactive, webgl, three.js"
+    />
+    <meta name="author" content="Vikram Tiwari" />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://vikramtiwari.com/books" />
+    <meta property="og:title" content="Vik's Books - Interactive 3D Library" />
+    <meta
+      property="og:description"
+      content="A 3D interactive bookshelf showcasing Vik's book collection. Explore genres, titles, and a unique visual experience."
+    />
+    <meta
+      property="og:image"
+      content="https://vikramtiwari.com/books/og-image.jpg"
+    />
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://vikramtiwari.com/books" />
+    <meta
+      property="twitter:title"
+      content="Vik's Books - Interactive 3D Library"
+    />
+    <meta
+      property="twitter:description"
+      content="A 3D interactive bookshelf showcasing Vik's book collection. Explore genres, titles, and a unique visual experience."
+    />
+    <meta
+      property="twitter:image"
+      content="https://vikramtiwari.com/books/og-image.jpg"
+    />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Audiowide&family=Cinzel+Decorative:wght@700&family=Comic+Neue:wght@400;700&family=Henny+Penny&family=Jolly+Lodger&family=Lora:ital,wght@0,400;0,700;1,400&family=MedievalSharp&family=Orbitron:wght@400;700&family=Oswald:wght@400;700&family=Share+Tech+Mono&family=Special+Elite&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Roboto+Slab:wght@400;700&family=Merriweather:ital,wght@0,400;0,700;1,400&family=Lobster&family=Pacifico&family=Bangers&family=Monoton&family=Creepster&family=Rye&family=Amatic+SC:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+    <script type="module" crossorigin src="./assets/index-DWYs1AIc.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-BlIkO-eh.css">
+  </head>
+  <body>
+    <div id="app"></div>
+    <div id="search-wrapper">
+        <button id="search-btn" class="nav-btn search-toggle" aria-label="Search">
+            <svg class="icon" viewBox="0 0 24 24" fill="currentColor" width="24" height="24">
+                <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+            </svg>
+        </button>
+        <div id="search-container" class="hidden">
+            <input type="text" id="search-input" placeholder="Search Title, Author..." />
+            <button id="search-close" aria-label="Close Search">✕</button>
+            <div id="search-results" class="hidden"></div>
+        </div>
+      </div>
+    <div id="ui-controls">
+      <button id="nav-left" class="nav-btn left" aria-label="Left">◀</button>
+
+      <button id="nav-right" class="nav-btn right" aria-label="Right">▶</button>
+      <button
+        id="view-toggle"
+        class="nav-btn view-toggle desktop-only"
+        style="
+          position: fixed;
+          top: 20px;
+          right: 20px;
+          z-index: 1000;
+          padding: 10px 20px;
+          background: rgba(255, 255, 255, 0.1);
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          color: white;
+          border-radius: 20px;
+          cursor: pointer;
+          backdrop-filter: blur(5px);
+        "
+      >
+        <svg id="icon-library" class="icon" viewBox="0 0 24 24" fill="currentColor" width="24" height="24">
+            <path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9H9V9h10v2zm-4 4H9v-2h6v2zm4-8H9V5h10v2z"/>
+        </svg>
+        <svg id="icon-carousel" class="icon hidden" viewBox="0 0 24 24" fill="currentColor" width="24" height="24">
+            <path d="M7 19h10V4H7v15zm-5-2h4V6H2v11zM18 6v11h4V6h-4z"/>
+        </svg>
+      </button>
+    </div>
+    <div id="library-app" class="hidden"></div>
+  </body>
+</html>
