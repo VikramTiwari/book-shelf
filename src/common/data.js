@@ -72,6 +72,7 @@ function parseCSV(text) {
     const idxISBN = getIndex('ISBN13');
     const idxISBNFallback = getIndex('ISBN');
     const idxRating = getIndex('My Rating');
+    const idxAvgRating = getIndex('Average Rating');
     const idxReview = getIndex('My Review');
     const idxDateRead = getIndex('Date Read');
     const idxDateAdded = getIndex('Date Added');
@@ -95,10 +96,15 @@ function parseCSV(text) {
             let isbn = getValue(idxISBN) || getValue(idxISBNFallback) || '';
             isbn = isbn.replace(/[="]/g, '');
 
-            let coverUrl = '';
-            if (isbn && isbn.match(/^\d+$/)) {
+            let coverUrlStr = row['CoverUrl'] || ''; 
+            let coverUrls = coverUrlStr ? coverUrlStr.split('|') : [];
+            let coverUrl = coverUrls.length > 0 ? coverUrls[0] : '';
+            
+            // Fallback generation if no enriched URL and we have an ISBN
+            if (!coverUrl && isbn && isbn.match(/^\d+$/)) {
                 // Direct OpenLibrary URL to avoid local proxy dependency
                 coverUrl = `https://covers.openlibrary.org/b/isbn/${isbn}-L.jpg`;
+                coverUrls = [coverUrl];
             }
 
             const title = getValue(idxTitle);
@@ -108,7 +114,8 @@ function parseCSV(text) {
                     id: getValue(idxId),
                     title: title,
                     author: getValue(idxAuthor),
-                    cover_url: coverUrl,
+                    cover_url: coverUrl, // Primary (first)
+                    cover_urls: coverUrls, // All candidates
                     rating: parseInt(getValue(idxRating)) || 0,
                     review: getValue(idxReview),
                     date_read: getValue(idxDateRead),
@@ -117,7 +124,8 @@ function parseCSV(text) {
                     shelf: getValue(idxShelf),
                     year: getValue(idxYear) || getValue(idxOrigYear) || '',
                     genre: getValue(idxGenre) || getValue(idxGenreFallback) || '',
-                    isbn: isbn
+                    isbn: isbn,
+                    average_rating: parseFloat(getValue(idxAvgRating)) || 0
                 });
             }
         } catch (e) {

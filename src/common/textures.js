@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { drawBackgroundPattern } from './patterns.js';
-import { createSpineTexture as createSharedSpineTexture } from './spine.js';
+
+import { createSpineTexture as createSharedSpineTexture, drawRatingStar, drawLinearRating } from './spine.js';
 
 // We export this so Book3D can call it directly if needed, or we wrapper it.
 // Actually Book3D calls createSpineTexture.
@@ -30,6 +31,13 @@ export function createCoverTexture(book, color, style = "Leather", age = 0) {
     ctx.strokeRect(20, 20, canvas.width - 40, canvas.height - 40);
 
     const padding = 40;
+    
+    // Draw Rating Star (Top Right)
+    const rating = book.average_rating || 0;
+    if (rating > 0) {
+        drawRatingStar(ctx, canvas.width - 60, 60, 60, rating);
+    }
+
     let y = 150;
 
     // Title & Subtitle Processing
@@ -151,13 +159,14 @@ export function createPagesTexture(baseColorHex, age = 0) {
 }
 
 
-export function createBackTexture(book, color, style = "Leather", age = 0, pages = 300) {
+export function createBackTexture(book, color, style = "Leather", age = 0, pages = 300, pageColor = '#F7F5E6') {
     const canvas = document.createElement('canvas');
     canvas.width = 512;
     canvas.height = 800; 
     const ctx = canvas.getContext('2d');
 
     const colorStr = (typeof color === 'string') ? color : '#' + color.getHexString();
+    const pageColorStr = (typeof pageColor === 'string') ? pageColor : '#' + pageColor.getHexString();
     
     // Background
     drawBackgroundPattern(ctx, canvas.width, canvas.height, style, colorStr);
@@ -225,6 +234,23 @@ export function createBackTexture(book, color, style = "Leather", age = 0, pages
         ctx.fillStyle = '#aaa';
         ctx.fillText(`Published in ${pubYear}`, canvas.width / 2, y);
         y += 60;
+    }
+
+    // Draw Rating Star & Text (Traditional Linear)
+    const bRating = book.average_rating || 0;
+    if (bRating > 0) {
+        // Draw linear rating
+        // Width for 5 stars: maybe 200px?
+        drawLinearRating(ctx, canvas.width / 2, y + 20, 200, bRating, pageColorStr);
+        
+        y += 70; // Increased space for stars (was 50)
+
+        ctx.font = 'bold 18px Arial';
+        ctx.fillStyle = pageColorStr; // Match text color to stars/pages
+        ctx.textAlign = 'center';
+        ctx.fillText(`${bRating}/5`, canvas.width / 2, y);
+        
+        y += 40; // Space after text
     }
 
     // Genre

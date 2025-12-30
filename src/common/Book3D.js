@@ -123,7 +123,7 @@ export function createBook(bookData) {
     });
 
     // 3. Back Texture
-    const backTexture = createBackTexture(bookData, finalCoverColor.getStyle(), visualMaterialType, age, pages);
+    const backTexture = createBackTexture(bookData, finalCoverColor.getStyle(), visualMaterialType, age, pages, finalPageColor);
     const backCoverMat = new THREE.MeshStandardMaterial({ 
         map: backTexture, 
         roughness: finalRoughness,
@@ -200,49 +200,66 @@ export function createBook(bookData) {
         ...bookData,
         isTextureLoaded: false,
         loadTexture: () => {
-            if (bookGroup.userData.isTextureLoaded || !cover_url) {
-                // If no URL and not loaded, ensure we are using the procedural cover
-                // (which is the default, so nothing to do unless we need to revert?)
-                // But generally, isTextureLoaded=false means procedural is active.
-                return;
-            }
+            if (bookGroup.userData.isTextureLoaded) return;
             
-            // Mark as loaded to prevent duplicate calls
-            bookGroup.userData.isTextureLoaded = true;
+            // Prefer array of URLs, fallback to single, or empty
+            const urls = bookData.cover_urls && bookData.cover_urls.length > 0 ? bookData.cover_urls : (cover_url ? [cover_url] : []);
+            
+            if (urls.length === 0) return;
+            
+            bookGroup.userData.isTextureLoaded = true; // Prevent re-entry
 
             const loader = new THREE.TextureLoader().setCrossOrigin('anonymous');
-            loader.load(
-                cover_url, 
-                (tex) => {
-                    // Check for invalid/placeholder images (often 1x1 pixel)
-                    if (tex.image.width < 10 || tex.image.height < 10) {
-                        console.warn(`Cover image for ${title} is too small (${tex.image.width}x${tex.image.height}), using procedural cover.`);
-                        return;
-                    }
+            
+            let attemptIndex = 0;
 
-                    tex.colorSpace = THREE.SRGBColorSpace;
-                    
-                    // Recalculate material properties for image
-                    const visualRoughness = Math.min(1.0, 0.5 + addedRoughness);
-                    const newMat = coverMesh.material.clone(); 
-                    
-                    newMat.map = tex;
-                    newMat.roughness = visualRoughness;
-                    newMat.metalness = 0;
-                    
-                    // Apply Age Tinting
-                    if (age > 40) newMat.color.setHex(0xfffff0);
-                    if (age > 80) newMat.color.lerp(new THREE.Color(0xc0b090), 0.2);
-                    
-                    coverMesh.material = newMat;
-                    coverMesh.material.needsUpdate = true;
-                },
-                undefined,
-                (err) => {
-                    console.warn('Texture load failed for', title, err);
-                    // On error, we just keep the procedural cover.
+            const tryLoad = (url) => {
+                loader.load(
+                    url, 
+                    (tex) => {
+                         // Check size
+                        if (tex.image.width < 10 || tex.image.height < 10) {
+                            console.warn(`Cover image for ${title} is too small (${tex.image.width}x${tex.image.height}), trying next...`);
+                            attemptNext();
+                            return;
+                        }
+
+                        // Success! Apply texture
+                        tex.colorSpace = THREE.SRGBColorSpace;
+                        const visualRoughness = Math.min(1.0, 0.5 + addedRoughness);
+                        const newMat = coverMesh.material.clone(); 
+                        
+                        newMat.map = tex;
+                        newMat.roughness = visualRoughness;
+                        newMat.metalness = 0;
+                        
+                        // Age Tinting
+                        if (age > 40) newMat.color.setHex(0xfffff0);
+                        if (age > 80) newMat.color.lerp(new THREE.Color(0xc0b090), 0.2);
+                        
+                        coverMesh.material = newMat;
+                        coverMesh.material.needsUpdate = true;
+                    },
+                    undefined,
+                    (err) => {
+                        console.warn(`Texture load failed for ${title} (${url})`, err);
+                        attemptNext();
+                    }
+                );
+            };
+
+            const attemptNext = () => {
+                attemptIndex++;
+                if (attemptIndex < urls.length) {
+                    tryLoad(urls[attemptIndex]);
+                } else {
+                    // All failed, keep procedural
+                    console.warn(`All cover URLs failed for ${title}`);
                 }
-            );
+            };
+
+            // Start first attempt
+            tryLoad(urls[0]);
         }
     };
 
