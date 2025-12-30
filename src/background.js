@@ -211,7 +211,10 @@ export function createGradientBackground(scene) {
 }
 
 
-export function createBackground(scene, count = 10) { // Reduced count for cleaner look
+export function createBackground(scene, count = 10) {
+    // Only 10 items as requested, matching the 10 ribbons/smoke trails
+    const finalCount = 10;
+    
     const itemGenerators = [
         createAtom, createDNA, createFlask,
         createCrystal, createSword, createShield,
@@ -226,30 +229,72 @@ export function createBackground(scene, count = 10) { // Reduced count for clean
         createGlobe, createAirplane, createPassport
     ];
 
-    for (let i = 0; i < count; i++) {
+    for (let i = 0; i < finalCount; i++) {
         const generator = itemGenerators[Math.floor(Math.random() * itemGenerators.length)];
         const mesh = generator();
         
-        // Tunnel Distribution (Hyperspace)
-        // Camera looks along -Z (from 0.9 to 0)
-        // So background depth should be -Z axis.
+        // --- Match Shader Logic Properties 'i' ---
+        // We assign each item to a "track" or "ribbon" index 'i'
         
-        const radius = Math.random() * 30; 
-        const angle = Math.random() * Math.PI * 2;
-        
-        // Depth is Z (start far behind)
-        mesh.position.z = -20 - Math.random() * 80; 
-        
-        // Tunnel/Spread in X/Y plane
-        mesh.position.x = Math.cos(angle) * radius; 
-        mesh.position.y = Math.sin(angle) * radius; 
-        
-        // Random Rotation
-        mesh.rotation.x = Math.random() * Math.PI;
-        mesh.rotation.y = Math.random() * Math.PI;
-        
-        // Increase Scale
-        mesh.scale.set(4.0, 4.0, 4.0);
+        // 1. Determine Type: Ribbon (Even) vs Smoke (Odd)
+        const isSmoke = i % 2; 
+
+        // 2. Direction
+        let dir = (i % 4 === 0) ? -1.0 : 1.0; // Alternate flow direction logic from shader
+        // Shader: float direction = (mod(i, 2.0) == 0.0) ? 1.0 : -1.0; if (mod(i, 4.0) == 0.0) direction *= -1.0;
+        // Let's simplified/match: 
+        // i=0: 1 * -1 = -1
+        // i=1: -1
+        // i=2: 1
+        // i=3: -1
+        // Actually let's just use explicit params to look good in 3D space
+        // We want them flowing Left<->Right
+        const flowDir = (i % 2 === 0) ? 1 : -1; 
+
+        // 3. Y-Base (Vertical Center)
+        // Shader: float spread = mix(0.08, 0.25, isSmoke); 
+        // UV 0.5 is center. In 3D at Z=-5, Y=1.5 is roughly center of camera look?
+        // Camera is at Y=1.5. So 3D Y should be around 1.5.
+        // We spread them vertically
+        const spreadY = isSmoke ? 3.0 : 1.5; 
+        const yBase = 1.5 + (Math.random() - 0.5) * spreadY;
+
+        // 4. Speed
+        const speedBase = isSmoke ? 0.3 : 0.5; // Reduced from 1.5/2.5
+        const speed = (speedBase + Math.random() * 0.2) * flowDir;
+
+        // 5. Z Depth
+        // Keep them behind the books defined plane.
+        // Books are at Z=0. Camera at Z=1.2.
+        // Background Sphere is far.
+        // Let's put these items floating in the mid-distance.
+        const zDepth = -3 - Math.random() * 5; // -3 to -8
+
+        // Initial Position
+        mesh.position.x = (Math.random() - 0.5) * 20; // Spread wide initially
+        mesh.position.y = yBase;
+        mesh.position.z = zDepth;
+
+        // Rotation Speed
+        mesh.userData = {
+            velocity: new THREE.Vector3(speed, 0, 0),
+            rotSpeed: {
+                x: (Math.random() - 0.5) * 0.02,
+                y: (Math.random() - 0.5) * 0.02,
+                z: (Math.random() - 0.5) * 0.02
+            },
+            oscillation: {
+                freq: 0.5 + Math.random(),
+                amp: 0.2 + Math.random() * 0.3,
+                phase: Math.random() * Math.PI * 2
+            },
+            yBase: yBase
+        };
+
+        // Scale
+        // Make them visible but not overwhelming
+        // Shader has them as "part of the flow".
+        mesh.scale.set(0.5, 0.5, 0.5);
 
         scene.add(mesh);
         backgroundMeshes.push(mesh);
@@ -257,28 +302,32 @@ export function createBackground(scene, count = 10) { // Reduced count for clean
 }
 
 export function animateBackground() {
-    backgroundMeshes.forEach(mesh => {
-        // Rotate
-        mesh.rotation.x += 0.005;
-        mesh.rotation.y += 0.005;
-        
-        // Move forward along Z (towards camera at 0.9)
-        mesh.position.z += 0.05; 
-        
-        // Radial Expansion (Move away from center X/Y)
-        mesh.position.x += mesh.position.x * 0.002;
-        mesh.position.y += mesh.position.y * 0.002;
+    // Current time approximation (could pass in global time for perfect sync)
+    const time = Date.now() * 0.001;
+    const boundaryX = 12; // Wrap around point
 
-        // Respawn if passed camera (Camera is at z=0.9)
-        if (mesh.position.z > 2) {
-            mesh.position.z = -100;
-            
-            // Respawn Tightly at Center
-            const radius = Math.random() * 5; 
-            const angle = Math.random() * Math.PI * 2;
-            
-            mesh.position.x = Math.cos(angle) * radius;
-            mesh.position.y = Math.sin(angle) * radius;
+    backgroundMeshes.forEach(mesh => {
+        const ud = mesh.userData;
+        
+        // 1. Move Horizontally (Flow)
+        // Add "User Navigation" drag?
+        // Assuming user flow is stored in global or we just ignore for now and do constant ambient flow
+        mesh.position.x += ud.velocity.x * 0.01; // Scale speed for frame-rate
+
+        // 2. Oscillate Vertically (Sine Wave)
+        // y = yBase + sin(t + x)
+        mesh.position.y = ud.yBase + Math.sin(time * ud.oscillation.freq + ud.oscillation.phase) * ud.oscillation.amp;
+
+        // 3. Rotate
+        mesh.rotation.x += ud.rotSpeed.x;
+        mesh.rotation.y += ud.rotSpeed.y;
+        mesh.rotation.z += ud.rotSpeed.z;
+
+        // 4. Wrap Around
+        if (ud.velocity.x > 0 && mesh.position.x > boundaryX) {
+            mesh.position.x = -boundaryX;
+        } else if (ud.velocity.x < 0 && mesh.position.x < -boundaryX) {
+            mesh.position.x = boundaryX;
         }
     });
 }

@@ -21,7 +21,7 @@ new HDRLoader()
 
 // Initialize Background
 createGradientBackground(scene);
-// createBackground(scene); // Disabled for now
+createBackground(scene);
 
 // Lighting
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
@@ -98,6 +98,10 @@ function animate() {
     // Animate Gradient Nebula with Direction
     if (typeof animateGradient === 'function') {
         animateGradient(elapsedTime, currentFlow);
+    }
+    
+    if (typeof animateBackground === 'function') {
+        animateBackground();
     }
     
     // Idle Animation for Focused Book
