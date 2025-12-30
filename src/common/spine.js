@@ -361,7 +361,7 @@ export function getBookMaterial(book) {
     return matTypes[titleHash % matTypes.length];
 }
 
-export function createSpineTexture(width, height, colorObj, book, materialTypeOverride = null) {
+export function createSpineTexture(width, height, colorObj, book, materialTypeOverride = null, coverImage = null) {
     const canvas = document.createElement('canvas');
     const aspect = width / height;
     const h = 1024;
@@ -423,6 +423,9 @@ export function createSpineTexture(width, height, colorObj, book, materialTypeOv
     const iconSize = w * 0.5;
     const topY = starY + (starSize / 2) + 30 + (iconSize / 2);
     
+    // Bottom Icon Position (If cover is present, we move this or hide it? Let's hide bottom icon if cover exists)
+    // Actually, let's keep it if space permits, but cover usually takes bottom spot.
+    // If coverImage is provided, we skip bottom genre icon.
     const botY = h - (w * 0.6);
 
     // Draw Rating Star
@@ -517,6 +520,45 @@ export function createSpineTexture(width, height, colorObj, book, materialTypeOv
         ctx.fillRect(0, by - 2, w, 4);
     }
     ctx.restore();
+
+    // --- Draw Cover Image on Spine (if available) ---
+    if (coverImage) {
+        // Draw at bottom
+        // Constraint: max width = w (minus padding), max height = ?
+        // We want it visible but essentially a thumbnail.
+        const padding = w * 0.1;
+        const availableW = w - (padding * 2);
+        
+        // Image aspect ratio
+        const imgAspect = coverImage.width / coverImage.height;
+        
+        let targetW = availableW;
+        let targetH = targetW / imgAspect;
+        
+        // If too tall, limit height
+        if (targetH > h * 0.2) {
+            targetH = h * 0.2;
+            targetW = targetH * imgAspect;
+        }
+
+        const dx = (w - targetW) / 2;
+        const dy = h - targetH - padding;
+
+        ctx.save();
+        // Add shadow/border for realism
+        ctx.shadowColor = 'rgba(0,0,0,0.5)';
+        ctx.shadowBlur = 4;
+        ctx.shadowOffsetY = 2;
+        
+        ctx.drawImage(coverImage, dx, dy, targetW, targetH);
+        
+        // Border
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+        ctx.strokeRect(dx, dy, targetW, targetH);
+        
+        ctx.restore();
+    }
 
     // --- 4. Aging ---
     if (age > 0) {

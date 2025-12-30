@@ -239,6 +239,13 @@ export function createBook(bookData) {
                         
                         coverMesh.material = newMat;
                         coverMesh.material.needsUpdate = true;
+
+                        // --- Update Spine with Cover ---
+                        const newSpineTex = createSpineTexture(totalThickness, baseHeight, finalCoverColor, bookData, visualMaterialType, tex.image);
+                        const newSpineMat = spineMesh.material.clone();
+                        newSpineMat.map = newSpineTex;
+                        spineMesh.material = newSpineMat;
+                        spineMesh.material.needsUpdate = true;
                     },
                     undefined,
                     (err) => {

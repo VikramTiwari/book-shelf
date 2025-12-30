@@ -175,6 +175,7 @@ export function buildFullBookshelf(books) {
                 id: bookGlobalIndex,
                 originalRot: mesh.rotation.clone(),
                 originalPos: mesh.position.clone(),
+                originalScale: mesh.scale.clone(),
                 gridPos: { row: rowIndex, col: i },
                 scaledThickness: scaledThickness 
             };

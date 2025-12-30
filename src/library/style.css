@@ -141,3 +141,62 @@
   font-style: italic;
   opacity: 0.9;
 }
+
+/* Navigation Controls */
+#library-app .nav-buttons {
+    position: absolute;
+    right: 20px;
+    bottom: 20px;
+    transform: none;
+    display: flex;
+    flex-direction: row;
+    gap: 20px;
+    z-index: 20;
+}
+
+#library-app .nav-btn {
+    width: 60px;
+    height: 60px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    color: white;
+    font-size: 24px; /* Match global */
+    cursor: pointer;
+    backdrop-filter: blur(5px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0; /* reset */
+    transition: background 0.2s, transform 0.1s;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+#library-app .nav-btn:hover {
+    /* No specific hover in global style, but active covers it. We can leave simple hover or match global exactly (which has none defined explicitly except active) */
+    background: rgba(255, 255, 255, 0.2); 
+    transform: none; /* Global doesn't scale on hover, only active */
+}
+
+#library-app .nav-btn:active {
+    background: rgba(255, 255, 255, 0.3);
+    transform: scale(0.95);
+}
+
+#library-app .nav-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+    pointer-events: none;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+#library-app .nav-btn .icon {
+    /* Global uses font-size for specific icons, or existing SVGs. 
+       In library we used SVGs with class .icon. 
+       Let's stick to size adjustments if needed. 
+    */
+    width: 24px;
+    height: 24px;
+    /* Removed stroke/stroke-width forcing to allow filled icons to render correctly */
+}

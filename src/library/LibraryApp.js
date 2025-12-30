@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
 import { loadAllBooks, getLibraryBooks } from '../common/data.js';
-import { setupInteraction, moveShelf, updateFocus, deselectBook } from './interaction.js';
+import { setupInteraction, moveShelf, updateFocus, deselectBook, toggleFlip } from './interaction.js';
 import { bookMeshes, buildFullBookshelf } from './view.js';
 import { preloadGenreFonts } from '../common/spine.js';
 import { createGradientBackground, animateGradient, createBackground, animateBackground } from '../common/background.js';
@@ -153,6 +153,13 @@ export function initLibrary() {
         if (keys.hasOwnProperty(e.key)) keys[e.key] = false;
     });
 
+    // UI Listeners
+    const navUpBtn = document.getElementById('nav-up');
+    const navDownBtn = document.getElementById('nav-down');
+
+    if (navUpBtn) navUpBtn.addEventListener('click', (e) => { e.stopPropagation(); moveShelf(-1); });
+    if (navDownBtn) navDownBtn.addEventListener('click', (e) => { e.stopPropagation(); moveShelf(1); });
+
     isInitialized = true;
     animate();
 }
@@ -195,6 +202,10 @@ function animate() {
         if (mesh.userData.isAnimating && mesh.userData.targetPos) {
             mesh.position.lerp(mesh.userData.targetPos, 0.1);
 
+            if (mesh.userData.targetScale) {
+                mesh.scale.lerp(mesh.userData.targetScale, 0.1);
+            }
+
             mesh.rotation.x += (mesh.userData.targetRot.x - mesh.rotation.x) * 0.1;
             mesh.rotation.y += (mesh.userData.targetRot.y - mesh.rotation.y) * 0.1;
             mesh.rotation.z += (mesh.userData.targetRot.z - mesh.rotation.z) * 0.1;
@@ -217,6 +228,17 @@ function getLibraryHTML() {
         <div class="header hidden">
             <h1 class="title">Vik's <span class="accent">Library</span></h1>
         </div>
+        
+        <!-- Navigation Controls -->
+        <div class="nav-buttons">
+            <button id="nav-up" class="nav-btn" aria-label="Previous Shelf">
+                ▲
+            </button>
+            <button id="nav-down" class="nav-btn" aria-label="Next Shelf">
+                ▼
+            </button>
+        </div>
+
         <div id="library-canvas-container"></div>
     `;
 }

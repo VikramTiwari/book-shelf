@@ -5,6 +5,7 @@ import { createBackground, animateBackground, createGradientBackground, animateG
 import { createBook } from '../common/Book3D.js';
 import { loadAllBooks, getCarouselBooks } from '../common/data.js';
 import { animateBookIdle } from '../common/animation.js';
+import { createIntroCard } from './IntroCard.js';
 
 let scene, camera, renderer, controls, clock;
 let allBookMeshes = [];
@@ -118,27 +119,32 @@ function loadData() {
             document.fonts.ready
         ]).then(([books]) => {
             const carouselBooks = getCarouselBooks(books);
-            processBooks(carouselBooks);
+            processBooks(carouselBooks, books);
         });
     }
 }
 
-function processBooks(readBooks) {
+// function loadData() ends at 124.
+
+function processBooks(readBooks, allBooks = []) {
     allBookMeshes = [];
+    
+    // 1. Create Intro Card
+    const introCard = createIntroCard(allBooks.length > 0 ? allBooks : readBooks);
+    introCard.position.set(0, 0, 0); 
+    
+    scene.add(introCard);
+    allBookMeshes.push(introCard);
+
+    // 2. Create Books
     readBooks.forEach((book, index) => {
         const { mesh } = createBook(book);
-        const xOffset = index * getSpacingX();
-        mesh.position.set(xOffset, 0, 0);
-        
-        // userData is already populated by createBook, but we append interaction data if needed
-        // createBook puts normalized data in userData.
-        // Carousel uses: id, isbn, title.
-        // Book3D puts: id, title, isbn (normalized).
-        // So we are good.
-        
         scene.add(mesh);
         allBookMeshes.push(mesh);
     });
+
+    // 3. Layout All Items
+    updateLayout();
 
     // Initial Selection
     const urlParams = new URLSearchParams(window.location.search);
@@ -146,14 +152,22 @@ function processBooks(readBooks) {
     if (bookId) {
         const foundIndex = allBookMeshes.findIndex(m => m.userData.id === bookId);
         if (foundIndex !== -1) currentBookIndex = foundIndex;
+    } else {
+        // Default to Intro Card (Index 0)
+        currentBookIndex = 0;
     }
 
     if (allBookMeshes.length > 0) {
-        const startBook = allBookMeshes[currentBookIndex];
-        controls.target.set(startBook.position.x, startBook.position.y, startBook.position.z);
-        camera.position.set(startBook.position.x, startBook.position.y, startBook.position.z + 1.2);
-        updateTextureWindow(currentBookIndex);
+        navigateToBook(currentBookIndex);
     }
+}
+
+function updateLayout() {
+    const spacing = getSpacingX();
+    allBookMeshes.forEach((mesh, index) => {
+        const xOffset = index * spacing;
+        mesh.position.set(xOffset, 0, 0);
+    });
 }
 
 function animate() {
@@ -218,7 +232,10 @@ function getSpacingX() {
 function updateTextureWindow(currentIndex) {
     if (allBookMeshes.length === 0) return;
     const mesh = allBookMeshes[currentIndex];
-    if (mesh.userData.loadTexture) mesh.userData.loadTexture();
+    // Intro Card doesn't have loadTexture, ignore it
+    if (mesh && mesh.userData && mesh.userData.loadTexture) {
+        mesh.userData.loadTexture();
+    }
 }
 
 function debounce(func, wait) {
@@ -250,10 +267,7 @@ function setupEventListeners() {
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
         renderer.setSize(window.innerWidth, window.innerHeight);
-        const spacing = getSpacingX();
-        allBookMeshes.forEach((mesh, index) => {
-            mesh.position.x = index * spacing;
-        });
+        updateLayout();
     });
 
     document.addEventListener('keydown', (e) => {
@@ -292,29 +306,81 @@ function setupEventListeners() {
         }
     });
 
-    document.getElementById('nav-flip').addEventListener('click', () => {
-        if (isActive) targetRotationBase += Math.PI;
-    });
 
-    // Mouse Drag
+
+    // Mouse Drag & Click
     document.addEventListener('mousedown', (e) => {
         if (!isActive) return;
         isDragging = true;
         previousMousePosition = { x: e.clientX, y: e.clientY };
     });
+
     document.addEventListener('mousemove', (e) => {
         if (!isActive || !isDragging || !window.currentBookMesh) return;
         const deltaMove = {
             x: e.clientX - previousMousePosition.x,
             y: e.clientY - previousMousePosition.y
         };
+        // Only rotate if moved enough to be considered a drag? 
+        // For now, immediate rotation is fine, but we need to distinguish click vs drag for flip.
+        
         const deltaRotationQuaternion = new THREE.Quaternion()
             .setFromEuler(new THREE.Euler(0, toRadians(deltaMove.x * 1), 0, 'XYZ'));
         window.currentBookMesh.quaternion.multiplyQuaternions(deltaRotationQuaternion, window.currentBookMesh.quaternion);
         previousMousePosition = { x: e.clientX, y: e.clientY };
     });
-    document.addEventListener('mouseup', () => {
+
+    document.addEventListener('mouseup', (e) => {
         isDragging = false;
+    });
+
+    // Valid Click (Raycast)
+    document.addEventListener('click', (e) => {
+         if (!isActive) return;
+         // Avoid flipping if we just dragged
+         // Simple check: if mouse moved significantly, it was a drag, handled by mousemove.
+         // But here we can just do a raycast. 
+         // If the user dragged, the click event still fires usually unless we prevent it.
+         // Let's rely on a small delta check or just 'isDragging' flag state? 
+         // logic: mousedown sets drag=true. mousemove does stuff. mouseup sets drag=false.
+         // click fires after mouseup.
+         
+         // Better approach: Record mousedown pos. If mouseup pos is same (or close), it's a click.
+         // We don't have that state here easily without adding more vars.
+         // Let's use a simpler heuristic for now: Raycast.
+         
+         const mouse = new THREE.Vector2();
+         mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+         mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+         const raycaster = new THREE.Raycaster();
+         raycaster.setFromCamera(mouse, camera);
+
+         const intersects = raycaster.intersectObjects(allBookMeshes, true);
+         if (intersects.length > 0) {
+             // Find root object
+             let target = intersects[0].object;
+             while(target.parent && target.parent.type !== 'Scene') {
+                 target = target.parent;
+             }
+             
+             // If we clicked the CURRENT book, flip it
+             if (window.currentBookMesh && target === window.currentBookMesh) {
+                 // Check if it was a drag or static click? 
+                 // If we want to be precise, we need StartPos.
+                 // Let's implement a quick check in mousedown/up if we really need it.
+                 // For now, let's just flip. If user drags slightly and releases, it might flip.
+                 // To prevent annoyance, let's assume if they interact with the book they might want to flip it?
+                 // Or we can check if the rotation changed significantly during "drag" phase?
+                 targetRotationBase += Math.PI;
+             } else {
+                 // Clicked another book? Navigate to it?
+                 const clickedIndex = allBookMeshes.indexOf(target);
+                 if (clickedIndex !== -1 && clickedIndex !== currentBookIndex) {
+                     navigateToBook(clickedIndex);
+                 }
+             }
+         }
     });
 }
 

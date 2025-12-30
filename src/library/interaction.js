@@ -6,6 +6,7 @@ import { CONFIG } from './config.js';
 
 let currentFocus = { row: 0, col: 0 };
 let selectedBook = null;
+let isFlipped = false;
 let raycaster = new THREE.Raycaster();
 let mouse = new THREE.Vector2();
 
@@ -77,6 +78,7 @@ function onMouseClick(event) {
     if (!app || app.classList.contains('hidden')) return;
 
     if (event.target.closest('.book-details')) return;
+    if (event.target.closest('.nav-buttons')) return;
     if (!_camera) return;
 
     raycaster.setFromCamera(mouse, _camera);
@@ -84,10 +86,14 @@ function onMouseClick(event) {
 
     if (intersects.length > 0) {
         const target = intersects[0].object.parent;
-        // Group has userData, meshes inside might not have all of it depending on raycast target
-        // Raycaster hits Mesh (Cover/Spine). Parent is Group. Group has userData.
         if (target && target.userData && target.userData.id !== undefined) {
-            selectBook(target);
+             if (selectedBook === target) {
+                 // Already selected, toggle flip
+                 toggleFlip();
+             } else {
+                 // Select new book
+                 selectBook(target);
+             }
         }
     } else {
         deselectBook();
@@ -121,11 +127,16 @@ function selectBook(mesh) {
 
     // Front facing (0,0,0) - Show the cover
     const targetRot = new THREE.Euler(0, 0, 0);
-
+    const targetScale = mesh.userData.originalScale.clone().multiplyScalar(1.3);
+    
     mesh.userData.targetPos = targetPos;
     mesh.userData.targetRot = targetRot;
+    mesh.userData.targetScale = targetScale;
     mesh.userData.isAnimating = true;
     mesh.userData.isSelected = true;
+    isFlipped = false;
+
+
 
     loadCoverTexture(mesh);
 
@@ -155,6 +166,7 @@ export function deselectBook() {
     const mesh = selectedBook;
     mesh.userData.targetPos = mesh.userData.originalPos;
     mesh.userData.targetRot = mesh.userData.originalRot;
+    mesh.userData.targetScale = mesh.userData.originalScale;
     mesh.userData.isAnimating = true;
     mesh.userData.isSelected = false;
 
@@ -165,6 +177,25 @@ export function deselectBook() {
     newUrl.searchParams.delete('book');
     window.history.replaceState(null, '', newUrl);
     document.title = "Vik's Books";
+
+    isFlipped = false;
+}
+
+export function toggleFlip() {
+    if (!selectedBook) return;
+    
+    isFlipped = !isFlipped;
+    const mesh = selectedBook;
+    
+    // Target rotation: 0 if front strings, PI if back
+    // Since we want to show the back cover, we rotate Y by 180 degrees (PI).
+    // Original rotation was 0,0,0 relative to parent for display?
+    // Actually in selectBook we set targetRot to (0,0,0).
+    // So for flip, we want (0, Math.PI, 0).
+    
+    const targetRot = new THREE.Euler(0, isFlipped ? Math.PI : 0, 0);
+    mesh.userData.targetRot = targetRot;
+    mesh.userData.isAnimating = true; 
 }
 
 function checkScrollPosition() {
@@ -251,3 +282,5 @@ export function nudgeCamera(yAmount) {
         _controls.target.y += yAmount;
     }
 }
+
+

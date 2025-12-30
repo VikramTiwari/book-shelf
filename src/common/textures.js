@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { drawBackgroundPattern } from './patterns.js';
 
-import { createSpineTexture as createSharedSpineTexture, drawRatingStar, drawLinearRating } from './spine.js';
+import { createSpineTexture as createSharedSpineTexture, drawLinearRating } from './spine.js';
 
 // We export this so Book3D can call it directly if needed, or we wrapper it.
 // Actually Book3D calls createSpineTexture.
@@ -32,11 +32,7 @@ export function createCoverTexture(book, color, style = "Leather", age = 0) {
 
     const padding = 40;
     
-    // Draw Rating Star (Top Right)
-    const rating = book.average_rating || 0;
-    if (rating > 0) {
-        drawRatingStar(ctx, canvas.width - 60, 60, 60, rating);
-    }
+    // Removed Rating Star from front cover per user request
 
     let y = 150;
 
