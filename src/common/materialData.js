@@ -11,6 +11,25 @@ export const BOOK_PALETTE = [
     '#6E2C00', // Dark Wood
     '#1B4F72', // Dark Blue
     '#641E16', // Dark Brick
+    // New Colors
+    '#2E86C1', // Strong Blue
+    '#138D75', // Sea Green
+    '#28B463', // Green
+    '#D68910', // Dark Orange
+    '#CA6F1E', // Chocolate
+    '#BA4A00', // Burnt Orange
+    '#A93226', // Dark Red
+    '#884EA0', // Purple
+    '#7D3C98', // Dark Violet
+    '#2471A3', // Dark Blue
+    '#17A589', // Teal
+    '#229954', // Emerald
+    '#D4AC0D', // Gold
+    '#E59866', // Light Wood
+    '#CD6155', // Terra Cotta
+    '#AF7AC5', // Lilac
+    '#566573', // Charcoal
+    '#839192', // Cadet Blue
 ];
 
 export const MATERIAL_STYLES = [
@@ -64,4 +83,23 @@ export const MATERIAL_STYLES = [
     { name: 'Blueprint', roughness: 0.9, metalness: 0.0 },
     { name: 'Tie Dye', roughness: 0.6, metalness: 0.0 },
     { name: 'Terrazzo', roughness: 0.4, metalness: 0.1 },
+    // New Materials
+    { name: 'Foil', roughness: 0.2, metalness: 0.9 },
+    { name: 'Linen', roughness: 0.9, metalness: 0.0 },
+    { name: 'Kraft', roughness: 1.0, metalness: 0.0 },
+    { name: 'Sandpaper', roughness: 1.0, metalness: 0.0 },
+    { name: 'Rubber', roughness: 0.9, metalness: 0.0 },
+    { name: 'Clay', roughness: 0.9, metalness: 0.0 },
+    { name: 'Silk', roughness: 0.4, metalness: 0.4 },
+    { name: 'Obsidian', roughness: 0.1, metalness: 0.8 },
+    { name: 'Concrete', roughness: 0.9, metalness: 0.1 },
+    { name: 'Distressed', roughness: 0.8, metalness: 0.1 },
+    { name: 'Argyle', roughness: 0.9, metalness: 0.0 },
+    { name: 'Houndstooth', roughness: 0.9, metalness: 0.0 },
+    { name: 'Stars', roughness: 0.4, metalness: 0.6 },
+    { name: 'Sunburst', roughness: 0.3, metalness: 0.4 },
+    { name: 'Checkerboard', roughness: 0.5, metalness: 0.1 },
+    { name: 'Stripes', roughness: 0.6, metalness: 0.1 },
+    { name: 'Diamonds', roughness: 0.4, metalness: 0.2 },
+    { name: 'Triangles', roughness: 0.5, metalness: 0.1 },
 ];

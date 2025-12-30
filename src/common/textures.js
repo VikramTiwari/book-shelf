@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { drawBackgroundPattern } from './patterns.js';
+import { drawBackgroundPattern, drawCoverBorder } from './patterns.js';
 
 import { createSpineTexture as createSharedSpineTexture, drawLinearRating } from './spine.js';
 
@@ -13,7 +13,7 @@ import { createSpineTexture as createSharedSpineTexture, drawLinearRating } from
 // We are REPLACING that with the one from ./spine.js
 // So we don't need to define/export it here.
 
-export function createCoverTexture(book, color, style = "Leather", age = 0) {
+export function createCoverTexture(book, color, style = "Leather", age = 0, borderStyle) {
     const canvas = document.createElement('canvas');
     canvas.width = 512;
     canvas.height = 800; // Aspect ratio roughly matches book
@@ -26,9 +26,7 @@ export function createCoverTexture(book, color, style = "Leather", age = 0) {
     drawBackgroundPattern(ctx, canvas.width, canvas.height, style, colorStr);
 
     // Border
-    ctx.strokeStyle = '#ebd5b3'; // Gold-ish border
-    ctx.lineWidth = 10;
-    ctx.strokeRect(20, 20, canvas.width - 40, canvas.height - 40);
+    drawCoverBorder(ctx, canvas.width, canvas.height, borderStyle, '#ebd5b3');
 
     const padding = 40;
     
@@ -155,7 +153,7 @@ export function createPagesTexture(baseColorHex, age = 0) {
 }
 
 
-export function createBackTexture(book, color, style = "Leather", age = 0, pages = 300, pageColor = '#F7F5E6') {
+export function createBackTexture(book, color, style = "Leather", age = 0, pages = 300, pageColor = '#F7F5E6', borderStyle) {
     const canvas = document.createElement('canvas');
     canvas.width = 512;
     canvas.height = 800; 
@@ -172,9 +170,7 @@ export function createBackTexture(book, color, style = "Leather", age = 0, pages
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     // Border
-    ctx.strokeStyle = '#ebd5b3'; 
-    ctx.lineWidth = 10;
-    ctx.strokeRect(20, 20, canvas.width - 40, canvas.height - 40);
+    drawCoverBorder(ctx, canvas.width, canvas.height, borderStyle, '#ebd5b3');
 
     const padding = 40;
     const maxWidth = canvas.width - (padding * 2); 

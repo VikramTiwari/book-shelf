@@ -570,5 +570,313 @@ export function drawBackgroundPattern(ctx, width, height, style, baseColor) {
              }
              break;
     }
+    
+    // New Patterns
+    ctx.save();
+    switch(style) {
+        case 'Foil':
+             const foilGrad = ctx.createLinearGradient(0,0,width,height);
+             foilGrad.addColorStop(0, 'rgba(255,255,255,0.1)');
+             foilGrad.addColorStop(0.5, 'rgba(255,255,255,0.4)');
+             foilGrad.addColorStop(1, 'rgba(255,255,255,0.1)');
+             ctx.fillStyle = foilGrad;
+             ctx.fillRect(0,0,width,height);
+             // Crinkles
+             for(let i=0; i<50; i++) {
+                 ctx.strokeStyle = `rgba(0,0,0,${Math.random()*0.1})`;
+                 ctx.beginPath();
+                 ctx.moveTo(Math.random()*width, Math.random()*height);
+                 ctx.lineTo(Math.random()*width, Math.random()*height);
+                 ctx.stroke();
+             }
+             break;
+        case 'Linen':
+             ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+             ctx.lineWidth = 1;
+             for(let x=0; x<width; x+=3) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,height); ctx.stroke(); }
+             for(let y=0; y<height; y+=3) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(width,y); ctx.stroke(); }
+             break;
+        case 'Kraft':
+             ctx.fillStyle = 'rgba(0,0,0,0.05)'; // Noise
+             for(let i=0; i<3000; i++) ctx.fillRect(Math.random()*width, Math.random()*height, 2, 2);
+             // Fibers
+             ctx.strokeStyle = 'rgba(100,50,0,0.1)';
+             for(let i=0; i<200; i++) {
+                 ctx.beginPath();
+                 const x=Math.random()*width; const y=Math.random()*height;
+                 ctx.moveTo(x,y); ctx.lineTo(x+Math.random()*10, y+Math.random()*10); ctx.stroke();
+             }
+             break;
+        case 'Sandpaper':
+             for(let i=0; i<10000; i++) {
+                 ctx.fillStyle = Math.random()>0.5 ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.2)';
+                 ctx.fillRect(Math.random()*width, Math.random()*height, 1.5, 1.5);
+             }
+             break;
+        case 'Argyle':
+             const dw = 60;
+             const dh = 100;
+             for(let y=0; y<height; y+=dh) {
+                 for(let x=0; x<width; x+=dw) {
+                     // Diamonds
+                     const off = (y/dh)%2===0 ? 0 : dw/2;
+                     const cx = x + off;
+                     const cy = y;
+                     ctx.fillStyle = ((x/dw + y/dh)%2===0) ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
+                     ctx.beginPath();
+                     ctx.moveTo(cx, cy);
+                     ctx.lineTo(cx+dw/2, cy+dh/2);
+                     ctx.lineTo(cx, cy+dh);
+                     ctx.lineTo(cx-dw/2, cy+dh/2);
+                     ctx.fill();
+                 }
+             }
+             // Lines
+             ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+             ctx.lineWidth = 1;
+             for(let y=0; y<height; y+=dh) {
+                 for(let x=0; x<width; x+=dw) {
+                      const off = (y/dh)%2===0 ? 0 : dw/2;
+                      const cx = x + off;
+                      const cy = y + dh/2;
+                      ctx.beginPath();
+                      ctx.moveTo(cx,0); ctx.lineTo(cx, height); 
+                      // Actually argyle lines usually cross centers
+                 }
+             }
+             break;
+        case 'Houndstooth':
+             const hs = 40;
+             ctx.fillStyle = 'rgba(0,0,0,0.2)';
+             for(let y=0; y<height; y+=hs) {
+                 for(let x=0; x<width; x+=hs) {
+                     if((x/hs + y/hs)%2 === 0) {
+                         ctx.fillRect(x,y,hs,hs);
+                         // This is just checkboard. Houndstooth is complex.
+                         // Simple approximation:
+                         ctx.beginPath(); ctx.moveTo(x+hs, y); ctx.lineTo(x+hs*1.5, y+hs/2); ctx.lineTo(x+hs, y+hs); ctx.fill();
+                     }
+                 }
+             }
+             break;
+        case 'Sunburst':
+             const cx = width/2;
+             const cy = height/2;
+             ctx.fillStyle = 'rgba(255,255,255,0.1)';
+             for(let i=0; i<20; i++) {
+                 ctx.beginPath();
+                 ctx.moveTo(cx, cy);
+                 ctx.arc(cx, cy, Math.max(width, height)*1.5, i/20*Math.PI*2, (i+0.5)/20*Math.PI*2);
+                 ctx.fill();
+             }
+             break;
+        case 'Stars':
+             ctx.fillStyle = 'rgba(255,255,255,0.6)';
+             for(let i=0; i<100; i++) {
+                 const x = Math.random()*width;
+                 const y = Math.random()*height;
+                 const r = Math.random()*2 + 1;
+                 ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+             }
+             // Big stars
+             for(let i=0; i<10; i++) {
+                 const x = Math.random()*width;
+                 const y = Math.random()*height;
+                 const r = Math.random()*10 + 5;
+                 drawStar(ctx, x, y, 5, r, r/2);
+             }
+             break;
+        case 'Checkerboard':
+             const cs = 50;
+             ctx.fillStyle = 'rgba(0,0,0,0.15)';
+             for(let y=0; y<height; y+=cs) {
+                 for(let x=0; x<width; x+=cs) {
+                     if((x/cs+y/cs)%2===0) ctx.fillRect(x,y,cs,cs);
+                 }
+             }
+             break;
+        case 'Stripes':
+             ctx.fillStyle = 'rgba(255,255,255,0.1)';
+             for(let x=0; x<width; x+=40) ctx.fillRect(x,0,20,height);
+             break;
+        case 'Diamonds':
+             const ds = 40;
+             ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+             ctx.lineWidth = 1;
+             for(let y=0; y<height; y+=ds) {
+                 for(let x=0; x<width; x+=ds) {
+                     ctx.strokeRect(x + (y/ds%2)*ds/2, y, ds/Math.sqrt(2), ds/Math.sqrt(2)); 
+                     // Simple rotate
+                     ctx.save();
+                     ctx.translate(x, y);
+                     ctx.rotate(Math.PI/4);
+                     ctx.strokeRect(-ds/2, -ds/2, ds, ds);
+                     ctx.restore();
+                 }
+             }
+             break;
+        case 'Triangles':
+             ctx.fillStyle = 'rgba(255,255,255,0.1)';
+             const ts = 50;
+             for(let y=0; y<height; y+=ts) {
+                 for(let x=0; x<width; x+=ts) {
+                     if (Math.random()>0.5) {
+                         ctx.beginPath();
+                         ctx.moveTo(x,y); ctx.lineTo(x+ts, y); ctx.lineTo(x+ts/2, y+ts);
+                         ctx.fill();
+                     }
+                 }
+             }
+             break;
+    }
+
+    ctx.restore();
+}
+
+function drawStar(ctx, cx, cy, spikes, outerRadius, innerRadius) {
+    let rot = Math.PI / 2 * 3;
+    let x = cx;
+    let y = cy;
+    let step = Math.PI / spikes;
+
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - outerRadius);
+    for (let i = 0; i < spikes; i++) {
+        x = cx + Math.cos(rot) * outerRadius;
+        y = cy + Math.sin(rot) * outerRadius;
+        ctx.lineTo(x, y);
+        rot += step;
+
+        x = cx + Math.cos(rot) * innerRadius;
+        y = cy + Math.sin(rot) * innerRadius;
+        ctx.lineTo(x, y);
+        rot += step;
+    }
+    ctx.lineTo(cx, cy - outerRadius);
+    ctx.closePath();
+    ctx.fill();
+}
+
+export function drawCoverBorder(ctx, width, height, style, color) {
+    ctx.save();
+    ctx.strokeStyle = color || '#ebd5b3';
+    ctx.lineWidth = 5;
+    const padding = 20;
+    
+    switch(style) {
+        case 'Titled':
+            // Double line
+            ctx.strokeRect(padding, padding, width - padding*2, height - padding*2);
+            ctx.lineWidth = 1;
+            ctx.strokeRect(padding+5, padding+5, width - (padding+5)*2, height - (padding+5)*2);
+            break;
+        case 'OrnateCorners':
+            ctx.strokeRect(padding, padding, width - padding*2, height - padding*2);
+            // Corners
+            const cs = 30;
+            const corner = (cx, cy, dx, dy) => {
+                ctx.beginPath();
+                ctx.moveTo(cx, cy + dy*cs);
+                ctx.quadraticCurveTo(cx, cy, cx + dx*cs, cy);
+                ctx.stroke();
+            };
+            ctx.lineWidth = 3;
+            corner(padding+5, padding+5, 1, 1);
+            corner(width-padding-5, padding+5, -1, 1);
+            corner(width-padding-5, height-padding-5, -1, -1);
+            corner(padding+5, height-padding-5, 1, -1);
+            break;
+        case 'Dotted':
+            ctx.setLineDash([5, 10]);
+            ctx.strokeRect(padding, padding, width - padding*2, height - padding*2);
+            ctx.setLineDash([]);
+            break;
+        case 'SolidThick':
+            ctx.lineWidth = 15;
+            ctx.strokeRect(padding, padding, width - padding*2, height - padding*2);
+            break;
+        case 'DoubleFrame':
+            ctx.lineWidth = 2;
+            ctx.strokeRect(padding, padding, width - padding*2, height - padding*2);
+            ctx.strokeRect(padding + 15, padding + 15, width - (padding+15)*2, height - (padding+15)*2);
+            break;
+        case 'Minimal':
+            // Only bottom line
+            ctx.beginPath();
+            ctx.moveTo(padding, height - padding*2);
+            ctx.lineTo(width - padding, height - padding*2);
+            ctx.stroke();
+            break;
+        case 'Classic':
+            // Corner Flourishes (Greek Key-ish)
+            const grec = 40;
+            ctx.strokeRect(padding, padding, width - padding*2, height - padding*2);
+            ctx.lineWidth = 2;
+            const drawKey = (cx, cy) => {
+                ctx.strokeRect(cx-10, cy-10, 20, 20);
+                ctx.strokeRect(cx-5, cy-5, 10, 10);
+            };
+            drawKey(padding, padding);
+            drawKey(width-padding, padding);
+            drawKey(width-padding, height-padding);
+            drawKey(padding, height-padding);
+            break;
+        case 'SciFi':
+            // Tech Bracket
+            ctx.lineWidth = 4;
+            const len = 60;
+            // Top Left
+            ctx.beginPath(); ctx.moveTo(padding, padding+len); ctx.lineTo(padding, padding); ctx.lineTo(padding+len, padding); ctx.stroke();
+            // Top Right
+            ctx.beginPath(); ctx.moveTo(width-padding-len, padding); ctx.lineTo(width-padding, padding); ctx.lineTo(width-padding, padding+len); ctx.stroke();
+            // Bottom Right
+            ctx.beginPath(); ctx.moveTo(width-padding, height-padding-len); ctx.lineTo(width-padding, height-padding); ctx.lineTo(width-padding-len, height-padding); ctx.stroke();
+            // Bottom Left
+            ctx.beginPath(); ctx.moveTo(padding+len, height-padding); ctx.lineTo(padding, height-padding); ctx.lineTo(padding, height-padding-len); ctx.stroke();
+            
+            // Data notches
+            ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(width-padding, padding+len+20); ctx.lineTo(width-padding, height-padding-len-20); 
+            ctx.setLineDash([5, 5]); ctx.stroke(); ctx.setLineDash([]);
+            break;
+        case 'Business':
+            // Modern Clean
+            ctx.fillStyle = ctx.strokeStyle;
+            ctx.fillRect(padding, 80, width-padding*2, 2); // Header line
+            ctx.fillRect(padding, height-80, width-padding*2, 2); // Footer line
+            // Vertical thin
+            ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(40, 80); ctx.lineTo(40, height-80); ctx.stroke();
+            break;
+        case 'Fantasy':
+            // Organic Corners
+            ctx.lineWidth = 2;
+            const vine = (x, y, dx, dy) => {
+                ctx.beginPath();
+                ctx.moveTo(x, y + dy*60);
+                ctx.bezierCurveTo(x, y, x + dx*60, y, x + dx*60, y);
+                ctx.moveTo(x, y);
+                ctx.quadraticCurveTo(x+dx*30, y+dy*30, x+dx*40, y+dy*40); // leaf
+                ctx.stroke();
+            };
+            vine(padding, padding, 1, 1);
+            vine(width-padding, padding, -1, 1);
+            vine(width-padding, height-padding, -1, -1);
+            vine(padding, height-padding, 1, -1);
+            
+            ctx.strokeRect(padding+10, padding+10, width-(padding+10)*2, height-(padding+10)*2);
+            break;
+        case 'Generic':
+            // Rounded Inset
+            const r = 30;
+            ctx.beginPath();
+            ctx.roundRect(padding, padding, width - padding*2, height - padding*2, r);
+            ctx.stroke();
+            break;
+        default:
+            // Standard
+            ctx.strokeRect(padding, padding, width - padding*2, height - padding*2);
+            break;
+    }
     ctx.restore();
 }
