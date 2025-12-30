@@ -1,9 +1,10 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
-import Papa from 'papaparse';
 import { createBackground, animateBackground, createGradientBackground, animateGradient } from '../common/background.js';
-import { createBook } from './book.js';
+import { createBook } from '../common/Book3D.js';
+import { loadAllBooks, getCarouselBooks } from '../common/data.js';
+import { animateBookIdle } from '../common/animation.js';
 
 let scene, camera, renderer, controls, clock;
 let allBookMeshes = [];
@@ -15,7 +16,7 @@ let isInitialized = false;
 // State
 let targetFlow = 0;
 let currentFlow = 0;
-let targetRotationBase = 0.2;
+let targetRotationBase = 0.0;
 let isDragging = false;
 let previousMousePosition = { x: 0, y: 0 };
 window.currentBookMesh = null; // Global for now
@@ -108,49 +109,33 @@ export function stopCarousel() {
 }
 
 function loadData() {
-    const CSV_PATH = '/data.csv';
     const urlParams = new URLSearchParams(window.location.search);
     const debugMode = urlParams.get('book') === '0';
 
     if (!debugMode) {
         Promise.all([
-            fetch(CSV_PATH).then(response => response.text()),
+            loadAllBooks(),
             document.fonts.ready
-        ]).then(([csvText]) => {
-            Papa.parse(csvText, {
-                header: true,
-                skipEmptyLines: true,
-                complete: function(results) {
-                    processBooks(results.data);
-                }
-            });
+        ]).then(([books]) => {
+            const carouselBooks = getCarouselBooks(books);
+            processBooks(carouselBooks);
         });
     }
 }
 
-function processBooks(data) {
-    const readBooks = data.filter(book => 
-        (book['Exclusive Shelf'] === 'read' || !!book['Date Read']) && book['Date Read']
-    );
-
-    readBooks.sort((a, b) => {
-        const d1 = new Date(a['Date Read']);
-        const d2 = new Date(b['Date Read']);
-        return d2 - d1;
-    });
-
+function processBooks(readBooks) {
     allBookMeshes = [];
     readBooks.forEach((book, index) => {
         const { mesh } = createBook(book);
         const xOffset = index * getSpacingX();
         mesh.position.set(xOffset, 0, 0);
         
-        Object.assign(mesh.userData, { 
-            id: book['Book Id'], 
-            isbn: book['ISBN13'] || book['ISBN'],
-            title: book['Title']
-        });
-
+        // userData is already populated by createBook, but we append interaction data if needed
+        // createBook puts normalized data in userData.
+        // Carousel uses: id, isbn, title.
+        // Book3D puts: id, title, isbn (normalized).
+        // So we are good.
+        
         scene.add(mesh);
         allBookMeshes.push(mesh);
     });
@@ -186,9 +171,8 @@ function animate() {
 
     // Idle Anim
     if (window.currentBookMesh && !isDragging) {
-        const idleAngle = Math.sin(elapsedTime * 0.8) * 0.15;
-        const targetRotY = targetRotationBase + idleAngle;
-        window.currentBookMesh.rotation.y += (targetRotY - window.currentBookMesh.rotation.y) * 0.05;
+        window.currentBookMesh.userData.baseRotationY = targetRotationBase;
+        animateBookIdle(window.currentBookMesh, elapsedTime);
     }
 
     // Camera & Scaling
@@ -250,7 +234,7 @@ const debouncedTextureUpdate = debounce((index) => updateTextureWindow(index), 2
 function navigateToBook(index) {
     if (index < 0 || index >= allBookMeshes.length) return;
     currentBookIndex = index;
-    targetRotationBase = 0.2;
+    targetRotationBase = 0.0;
     const bookData = allBookMeshes[index].userData;
     if (bookData && bookData.id) {
         const newUrl = new URL(window.location);
@@ -356,7 +340,7 @@ function syncWithUrl() {
             // But navigateToBook sets replaceState.
             // Let's modify navigateToBook or manually reset vars.
             targetFlow = 0;
-            targetRotationBase = 0.2;
+            targetRotationBase = 0.0;
             
             // Manual Reset without URL update if possible, or just accept 0 is default.
             // If the user wants "landing page setup", it implies the state when you first load /carousel.

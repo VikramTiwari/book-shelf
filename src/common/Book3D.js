@@ -1,23 +1,19 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import { createSpineTexture, createBackTexture, createCoverTexture, createPagesTexture } from './textures.js';
-import { MATERIAL_STYLES, BOOK_PALETTE } from './materialData.js';
+import { createCoverTexture, createBackTexture, createPagesTexture } from './textures.js';
+import { createSpineTexture, getBookColor, getBookMaterial } from './spine.js';
+import { MATERIAL_STYLES } from './materialData.js';
 
 export function createBook(bookData) {
-    const { Title, Author, "Number of Pages": pages, "My Rating": rating, "Original Publication Year": origYear, "Year Published": pubYear } = bookData;
+    // bookData is the normalized object from common/data.js
+    const { title, author, year: yearStr, pages, rating, cover_url } = bookData;
 
     // --- Aging Logic ---
     const currentYear = new Date().getFullYear();
-    let year = currentYear;
-    if (origYear) year = parseInt(origYear);
-    else if (pubYear) year = parseInt(pubYear);
-    
-    if (isNaN(year)) year = currentYear;
+    const year = parseInt(yearStr) || currentYear;
     const age = Math.max(0, currentYear - year);
 
     // Aging Stages Configuration
-    // We interpolate between these keyframes based on Age
-    // 10 thresholds as requested
     const AGE_STAGES = [
         { age: 0,   pageColor: 0xfdfdfd, roughnessBonus: 0.00, metalFactor: 1.0, dustMix: 0.00 }, // Brand New
         { age: 5,   pageColor: 0xfcfbf9, roughnessBonus: 0.02, metalFactor: 0.95, dustMix: 0.01 }, // Like New
@@ -55,45 +51,36 @@ export function createBook(bookData) {
     const metalMultiplier = lower.metalFactor + (upper.metalFactor - lower.metalFactor) * t;
     const dustAmount = lower.dustMix + (upper.dustMix - lower.dustMix) * t;
 
-    // Dimensions (Increased by 2.25x)
+    // Dimensions (Standard Visual Scale)
     const baseHeight = 0.35 * 2.25; // ~0.78
     const baseWidth = 0.25 * 2.25;  // ~0.56
     
     // Dynamic Thickness based on Pages
-    // Default 300 pages if missing
     const pageCount = parseInt(pages) || 300; 
-    // Multiplier adjusted for visual scale (approx 0.00035 per page * 2.25 scale? No, direct units)
-    // Previous fixed was ~0.135
-    // 0.135 / 300 pages = 0.00045 per page
     let calculatedThickness = pageCount * 0.00045;
-    
-    // Clamp dimensions to avoid glitches
     const totalThickness = Math.min(Math.max(calculatedThickness, 0.04), 0.4); 
     
-    const coverThickness = 0.008 * 1.5; // Scaled thickness
-    const pageIndentation = 0.01 * 1.5; // Scaled indent
+    const coverThickness = 0.008 * 1.5; 
+    const pageIndentation = 0.01 * 1.5; 
     
-    // Geometry Helper
-    // We will build a Group
     const bookGroup = new THREE.Group();
 
-    // Deterministic Selection based on Title/ISBN
-    // We use a salt to ensure Color is independent of Style
-    const seed = Title + (bookData['ISBN'] || bookData['ISBN13'] || "");
-    const styleHash = getStringHash(seed + "STYLE");
-    const colorHash = getStringHash(seed + "COLOR");
+    // Determine Logic
+    const baseColor = getBookColor(bookData); // From spine.js logic
+    const visualMaterialType = getBookMaterial(bookData); // 'Leather', 'Cloth', 'Buckram', 'Paper'
 
-    // Pick deterministic style
-    const styleIdx = Math.abs(styleHash) % MATERIAL_STYLES.length;
-    const selectedStyle = MATERIAL_STYLES[styleIdx];
+    // Map visual material to physical properties
+    let physicalStyleName = 'Matte'; // Default
+    if (visualMaterialType === 'Leather') physicalStyleName = 'Leather';
+    else if (visualMaterialType === 'Cloth') physicalStyleName = 'Fabric';
+    else if (visualMaterialType === 'Buckram') physicalStyleName = 'Canvas';
+    else if (visualMaterialType === 'Paper') physicalStyleName = 'Matte';
 
-    // Pick deterministic color from palette
-    const colorIndex = Math.abs(colorHash) % BOOK_PALETTE.length;
-    const colorHex = BOOK_PALETTE[colorIndex];
-    const baseColor = new THREE.Color(colorHex);
+    // Find style object
+    const selectedStyle = MATERIAL_STYLES.find(s => s.name === physicalStyleName) || MATERIAL_STYLES[0];
 
-    // Apply Dust / Fading to Base Color
-    const dustColor = new THREE.Color(0x5a5a4a); // Brownish Grey
+    // Apply Dust / Fading
+    const dustColor = new THREE.Color(0x5a5a4a); 
     const finalCoverColor = baseColor.clone().lerp(dustColor, dustAmount);
 
     // Calculate Final Material Props
@@ -108,21 +95,27 @@ export function createBook(bookData) {
     });
 
     // Textures
+    
     // 1. Front Cover Texture
     let frontCoverMat = coverMaterialBase.clone();
-    // Fallback or Initial Placeholder for Lazy Load
-        // We pass the final faded color hex string
-        const coverTex = createCoverTexture(bookData, finalCoverColor.getStyle(), selectedStyle.name, age);
-        frontCoverMat = new THREE.MeshStandardMaterial({ 
-            map: coverTex, 
-            roughness: finalRoughness,
-            metalness: finalMetalness
-        });
+    
+    // Create Placeholder/Generative Cover
+    // Use visualMaterialType for the pattern style to match spine
+    const coverTex = createCoverTexture(bookData, finalCoverColor.getStyle(), visualMaterialType, age);
+    frontCoverMat = new THREE.MeshStandardMaterial({ 
+        map: coverTex, 
+        roughness: finalRoughness,
+        metalness: finalMetalness
+    });
 
     // 2. Spine Texture
-    // Pass page count (default 0 or handled inside if missing?)
-    // createSpineTexture signature: (title, color, rating, style, age, pages)
-    const spineTexture = createSpineTexture(Title, finalCoverColor.getStyle(), rating, selectedStyle.name, age, pages);
+    // We pass (width, height) to createSpineTexture.
+    // The spine geometry is `totalThickness` wide and `baseHeight` tall.
+    // We want mapped resolution to be high enough.
+    // Let's pass the physical aspect ratio?
+    // createSpineTexture(width, height) -> aspect = width/height.
+    // Ideally we pass ~totalThickness and ~baseHeight so aspect is correct.
+    const spineTexture = createSpineTexture(totalThickness, baseHeight, finalCoverColor, bookData, visualMaterialType);
     const spineMat = new THREE.MeshStandardMaterial({ 
         map: spineTexture, 
         roughness: finalRoughness,
@@ -130,7 +123,7 @@ export function createBook(bookData) {
     });
 
     // 3. Back Texture
-    const backTexture = createBackTexture(bookData, finalCoverColor.getStyle(), selectedStyle.name, age, pages);
+    const backTexture = createBackTexture(bookData, finalCoverColor.getStyle(), visualMaterialType, age, pages);
     const backCoverMat = new THREE.MeshStandardMaterial({ 
         map: backTexture, 
         roughness: finalRoughness,
@@ -177,20 +170,26 @@ export function createBook(bookData) {
     bookGroup.add(backCoverMesh);
 
     // 4. Pages (Block)
-    // Slightly smaller than cover
-    const currPageWidth = baseWidth - pageIndentation; // Width reduced by indent
-    const currPageHeight = baseHeight - (0.02 * 1.5); // Top/Bottom margins
-    const currPageThickness = totalThickness - (coverThickness * 2); // Inside covers
+    const currPageWidth = baseWidth - pageIndentation; 
+    const currPageHeight = baseHeight - (0.02 * 1.5); 
+    const currPageThickness = totalThickness - (coverThickness * 2); 
 
     const pagesGeo = new RoundedBoxGeometry(currPageWidth, currPageHeight, currPageThickness, 4, 0.005);
     const pagesMesh = new THREE.Mesh(pagesGeo, pagesMat);
-    // Shift pages slightly right so they don't poke through spine, and slightly inset
-    pagesMesh.position.x = (baseWidth - currPageWidth) / 2 - (pageIndentation / 2); // Centered visuals
-    // actually, spine is at -baseWidth/2. 
-    // If Pages width = baseWidth - indent.
-    // We want pages right edge aligned with cover right edge? or inset?
-    // Let's settle for simple centering offset by indentation from spine.
-    pagesMesh.position.x = 0 + (pageIndentation * 0.5); 
+    // Shift pages slightly right (inset from spine)
+    pagesMesh.position.x = 0; // Centered on Group?
+    // Group center (0,0,0) is center of book volume?
+    // Spine is at -baseWidth/2. Front Cover at Z=+Thickness/2. Back at Z=-Thickness/2.
+    // Base Width centers cover at 0. So left edge is -baseWidth/2. Right edge is +baseWidth/2.
+    // Pages should start after spine and end near right edge.
+    // Pages should be roughly centered betweencovers (Z=0).
+    // X Position:
+    // Spine at -baseWidth/2.
+    // Pages width = baseWidth - indent.
+    // If we center pages at 0, Left edge is -width/2. Right is +width/2.
+    // -width/2 = -(baseWidth - indent)/2 = -baseWidth/2 + indent/2.
+    // So pages left edge is displaced by indent/2 from spine. Correct.
+    pagesMesh.position.x = (pageIndentation * 0.5); 
     
     pagesMesh.castShadow = true;
     pagesMesh.receiveShadow = true;
@@ -201,13 +200,13 @@ export function createBook(bookData) {
         ...bookData,
         isTextureLoaded: false,
         loadTexture: () => {
-            if (bookGroup.userData.isTextureLoaded || !bookData.CoverUrl) return;
+            if (bookGroup.userData.isTextureLoaded || !cover_url || cover_url.includes('placehold.co')) return;
             
             // Mark as loaded to prevent duplicate calls
             bookGroup.userData.isTextureLoaded = true;
 
             const loader = new THREE.TextureLoader();
-            loader.load(bookData.CoverUrl, (tex) => {
+            loader.load(cover_url, (tex) => {
                 tex.colorSpace = THREE.SRGBColorSpace;
                 
                 // Recalculate material properties for image
@@ -229,16 +228,4 @@ export function createBook(bookData) {
     };
 
     return { mesh: bookGroup, thickness: totalThickness, height: baseHeight, width: baseWidth };
-}
-
-// Simple String Hash
-function getStringHash(str) {
-    let hash = 0;
-    if (!str || str.length === 0) return hash;
-    for (let i = 0; i < str.length; i++) {
-        const char = str.charCodeAt(i);
-        hash = ((hash << 5) - hash) + char;
-        hash |= 0; // Convert to 32bit integer
-    }
-    return hash;
 }

@@ -180,7 +180,14 @@ function drawMaterialTexture(ctx, w, h, materialType) {
     ctx.restore();
 }
 
-export function createSpineTexture(width, height, colorObj, book) {
+
+export function getBookMaterial(book) {
+    const matTypes = ['Leather', 'Cloth', 'Buckram', 'Paper', 'Leather', 'Cloth'];
+    const titleHash = (book.title || '').length + (parseInt(book.year) || 0);
+    return matTypes[titleHash % matTypes.length];
+}
+
+export function createSpineTexture(width, height, colorObj, book, materialTypeOverride = null) {
     const canvas = document.createElement('canvas');
     const aspect = width / height;
     const h = 1024;
@@ -210,9 +217,7 @@ export function createSpineTexture(width, height, colorObj, book) {
     ctx.fillRect(0, 0, w, h);
 
     // --- 2. Material Texture Overlay ---
-    const matTypes = ['Leather', 'Cloth', 'Buckram', 'Paper', 'Leather', 'Cloth'];
-    const titleHash = (book.title || '').length + (parseInt(book.year) || 0);
-    const material = matTypes[titleHash % matTypes.length];
+    const material = materialTypeOverride || getBookMaterial(book);
 
     drawMaterialTexture(ctx, w, h, material);
 

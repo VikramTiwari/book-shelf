@@ -1,11 +1,12 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
-import { loadBooks, booksData } from './data.js';
+import { loadAllBooks, getLibraryBooks } from '../common/data.js';
 import { setupInteraction, moveShelf, updateFocus, deselectBook } from './interaction.js';
-import { bookMeshes } from './view.js';
-import { preloadGenreFonts } from './spine.js';
+import { bookMeshes, buildFullBookshelf } from './view.js';
+import { preloadGenreFonts } from '../common/spine.js';
 import { createGradientBackground, animateGradient, createBackground, animateBackground } from '../common/background.js';
+import { animateBookIdle } from '../common/animation.js';
 import './style.css';
 
 export let scene, camera, renderer, controls;
@@ -13,6 +14,7 @@ let animationId;
 let isActive = false;
 let isInitialized = false;
 let clock = new THREE.Clock();
+let libraryBooksData = [];
 
 const keys = { ArrowLeft: false, ArrowRight: false };
 
@@ -114,11 +116,14 @@ export function initLibrary() {
 
     // 7. Load Data & Build
     preloadGenreFonts().then(() => {
-        loadBooks().then((books) => {
+        loadAllBooks().then((allBooks) => {
+             libraryBooksData = getLibraryBooks(allBooks);
+             buildFullBookshelf(libraryBooksData);
+
              const urlParams = new URLSearchParams(window.location.search);
              const bookId = urlParams.get('book');
-             if (bookId && books && bookMeshes.length > 0) {
-                 const index = books.findIndex(b => b.id === bookId);
+             if (bookId && libraryBooksData.length > 0) {
+                 const index = libraryBooksData.findIndex(b => b.id === bookId);
                  if (index !== -1 && bookMeshes[index]) {
                      const mesh = bookMeshes[index];
                      if (mesh.userData && mesh.userData.gridPos) {
@@ -197,6 +202,10 @@ function animate() {
             if (mesh.position.distanceTo(mesh.userData.targetPos) < 0.01) {
                 mesh.userData.isAnimating = false;
             }
+        } else if (mesh.userData.isSelected) {
+            // Idle Animation (Shared)
+            const time = clock.getElapsedTime();
+            animateBookIdle(mesh, time);
         }
     });
 
@@ -209,17 +218,6 @@ function getLibraryHTML() {
             <h1 class="title">Vik's <span class="accent">Library</span></h1>
         </div>
         <div id="library-canvas-container"></div>
-        <div class="book-details hidden">
-            <button class="close-btn">&times;</button>
-            <div class="details-content">
-                <h2 id="detail-title">Title</h2>
-                <p id="detail-author">Author</p>
-                <p id="detail-year" style="font-size: 0.9rem; color: #888; margin-bottom: 1rem;"></p>
-                <div id="detail-rating"></div>
-                <p id="detail-date"></p>
-                <p id="detail-review">Review</p>
-            </div>
-        </div>
     `;
 }
 
@@ -227,8 +225,8 @@ function syncWithUrl() {
     const urlParams = new URLSearchParams(window.location.search);
     const bookId = urlParams.get('book');
     
-    if (bookId && booksData && booksData.length > 0) {
-         const index = booksData.findIndex(b => b.id === bookId);
+    if (bookId && libraryBooksData && libraryBooksData.length > 0) {
+         const index = libraryBooksData.findIndex(b => b.id === bookId);
          if (index !== -1 && bookMeshes[index]) {
               const mesh = bookMeshes[index];
               if (mesh.userData && mesh.userData.gridPos) {

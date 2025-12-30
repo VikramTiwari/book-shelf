@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import { camera, controls, renderer, scene } from './LibraryApp.js';
 import { navigationGrid, bookMeshes, scrollBounds } from './view.js';
-import { booksData } from './data.js';
 import { formatDate } from './utils.js';
 import { CONFIG } from './config.js';
 
@@ -85,7 +84,9 @@ function onMouseClick(event) {
 
     if (intersects.length > 0) {
         const target = intersects[0].object.parent;
-        if (target && target.userData.id !== undefined) {
+        // Group has userData, meshes inside might not have all of it depending on raycast target
+        // Raycaster hits Mesh (Cover/Spine). Parent is Group. Group has userData.
+        if (target && target.userData && target.userData.id !== undefined) {
             selectBook(target);
         }
     } else {
@@ -118,51 +119,32 @@ function selectBook(mesh) {
     targetPos.z += 4;
     targetPos.y += 0.5;
 
-    const targetRot = new THREE.Euler(0, -Math.PI / 2, 0);
+    // Front facing (0,0,0) - Show the cover
+    const targetRot = new THREE.Euler(0, 0, 0);
 
     mesh.userData.targetPos = targetPos;
     mesh.userData.targetRot = targetRot;
     mesh.userData.isAnimating = true;
+    mesh.userData.isSelected = true;
 
     loadCoverTexture(mesh);
 
-    if (booksData && booksData[mesh.userData.id]) {
-        showDetails(booksData[mesh.userData.id]);
-        
+    // Use userData directly
+    // Use userData directly
+    if (mesh.userData) {
         // Update URL
         const newUrl = new URL(window.location);
         newUrl.searchParams.set('book', mesh.userData.id);
         window.history.replaceState(null, '', newUrl);
-        if (booksData[mesh.userData.id].title) {
-             document.title = `Vik's Books | ${booksData[mesh.userData.id].title}`;
+        if (mesh.userData.title) {
+             document.title = `Vik's Books | ${mesh.userData.title}`;
         }
     }
 }
 
 function loadCoverTexture(mesh) {
-    if (mesh.userData.id !== undefined && booksData[mesh.userData.id]) {
-        const book = booksData[mesh.userData.id];
-        ['CoverRight', 'CoverLeft'].forEach(partName => {
-            const coverMesh = mesh.children.find(c => c.name === partName);
-            if (coverMesh) {
-                const coverMat = coverMesh.material;
-                if (book.cover_url && !book.cover_url.includes('placehold.co') && !coverMat.map) {
-                    const year = parseInt(book.year) || new Date().getFullYear();
-                    const age = Math.max(0, new Date().getFullYear() - year);
-                    const ageFactor = Math.min(age, 100) / 100;
-
-                    const tint = new THREE.Color(1, 1, 1).lerp(new THREE.Color(0.85, 0.75, 0.6), ageFactor * 0.9);
-                    coverMat.color.copy(tint);
-
-                    const loader = new THREE.TextureLoader();
-                    loader.load(book.cover_url, (texture) => {
-                        texture.colorSpace = THREE.SRGBColorSpace;
-                        coverMat.map = texture;
-                        coverMat.needsUpdate = true;
-                    });
-                }
-            }
-        });
+    if (mesh.userData && typeof mesh.userData.loadTexture === 'function') {
+        mesh.userData.loadTexture();
     }
 }
 
@@ -174,77 +156,15 @@ export function deselectBook() {
     mesh.userData.targetPos = mesh.userData.originalPos;
     mesh.userData.targetRot = mesh.userData.originalRot;
     mesh.userData.isAnimating = true;
+    mesh.userData.isSelected = false;
 
     selectedBook = null;
-    hideDetails();
     
     // Clear URL
     const newUrl = new URL(window.location);
     newUrl.searchParams.delete('book');
     window.history.replaceState(null, '', newUrl);
     document.title = "Vik's Books";
-}
-
-function showDetails(book) {
-    // Ensure we scope to library-app
-    const container = document.getElementById('library-app');
-    if (!container) return;
-    
-    const el = container.querySelector('.book-details');
-    if(!el) return;
-
-    if (selectedBook && _camera) {
-        const pos = selectedBook.position.clone();
-        pos.project(_camera);
-        if (pos.x > 0) {
-            el.classList.add('position-left');
-        } else {
-            el.classList.remove('position-left');
-        }
-    }
-
-    const titleEl = container.querySelector('#detail-title');
-    if(titleEl) {
-        titleEl.textContent = book.title;
-        if (book.fontName) titleEl.style.fontFamily = `"${book.fontName}", sans-serif`;
-        else titleEl.style.fontFamily = '';
-    }
-    
-    const authorEl = container.querySelector('#detail-author');
-    if(authorEl) authorEl.textContent = book.author;
-    
-    const yearEl = container.querySelector('#detail-year');
-    if(yearEl) yearEl.textContent = book.year ? `Published: ${book.year}` : "";
-    
-    const reviewEl = container.querySelector('#detail-review');
-    if(reviewEl) reviewEl.textContent = book.review ? `"${book.review}"` : "";
-
-    const dateRead = formatDate(book.date_read);
-    const dateAdded = formatDate(book.date_added);
-    const dateEl = container.querySelector('#detail-date');
-    if(dateEl) {
-        if (dateRead) {
-            dateEl.textContent = `Read on: ${dateRead}`;
-        } else if (dateAdded) {
-            dateEl.textContent = `Added on: ${dateAdded}`;
-        } else {
-            dateEl.textContent = "";
-        }
-    }
-
-    const ratingEl = container.querySelector('#detail-rating');
-    if(ratingEl) ratingEl.textContent = '★'.repeat(book.rating) + '☆'.repeat(5 - book.rating);
-    
-    el.classList.remove('hidden');
-}
-
-function hideDetails() {
-    const container = document.getElementById('library-app');
-    if (container) {
-        const el = container.querySelector('.book-details');
-        if (el) el.classList.add('hidden');
-    }
-    if (selectedBook) deselectBook();
 }
 
 function checkScrollPosition() {
