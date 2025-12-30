@@ -78,3 +78,139 @@ body {
 .nav-btn.flip {
     font-size: 28px; /* Slightly larger icon */
 }
+
+/* Search Styles */
+#search-wrapper {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+}
+
+#search-wrapper.active {
+    width: 300px; /* Expanded width */
+}
+
+/* Search Toggle Button */
+.search-toggle {
+    width: 48px; /* Slightly smaller than nav buttons? Matching nav-btn style */
+    height: 48px;
+    border-radius: 50%;
+    /* Inherits .nav-btn styles but we might need overrides if nav-btn positioning relies on parent */
+    position: relative;
+    z-index: 2;
+}
+
+/* Search Container (Input + Results) */
+#search-container {
+    display: flex;
+    align-items: center;
+    background: rgba(10, 10, 10, 0.85);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 24px;
+    padding: 5px;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%; /* expands to wrapper width */
+    transform-origin: left center;
+    animation: expandSearch 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+}
+
+@keyframes expandSearch {
+    from {
+        opacity: 0;
+        transform: scaleX(0.5);
+        width: 48px;
+    }
+    to {
+        opacity: 1;
+        transform: scaleX(1);
+        width: 300px;
+    }
+}
+
+#search-input {
+    background: transparent;
+    border: none;
+    color: white;
+    font-family: inherit;
+    font-size: 16px;
+    padding: 10px 15px;
+    flex: 1;
+    outline: none;
+    min-width: 0; /* flex fix */
+}
+
+#search-close {
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.7);
+    cursor: pointer;
+    font-size: 18px;
+    padding: 0 12px;
+    transition: color 0.2s;
+}
+
+#search-close:hover {
+    color: white;
+}
+
+/* Results Dropdown */
+#search-results {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    background: rgba(20, 20, 20, 0.95);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    margin-top: 8px;
+    max-height: 400px;
+    overflow-y: auto;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+}
+
+.search-result-item {
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.search-result-item:last-child {
+    border-bottom: none;
+}
+
+.search-result-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+
+
+.result-info {
+    flex: 1;
+    overflow: hidden;
+}
+
+.result-title {
+    color: #fff;
+    font-weight: 500;
+    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 4px;
+}
+
+.result-author {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 12px;
+}

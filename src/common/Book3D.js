@@ -3,6 +3,10 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 import { createCoverTexture, createBackTexture, createPagesTexture } from './textures.js';
 import { createSpineTexture, getBookColor, getBookMaterial } from './spine.js';
 import { MATERIAL_STYLES } from './materialData.js';
+const BORDER_STYLES = [
+    'Titled', 'OrnateCorners', 'Dotted', 'SolidThick', 'DoubleFrame', 'Minimal', 'Standard',
+    'Classic', 'SciFi', 'Business', 'Fantasy', 'Generic'
+];
 
 export function createBook(bookData) {
     // bookData is the normalized object from common/data.js
@@ -78,6 +82,17 @@ export function createBook(bookData) {
 
     // Find style object
     const selectedStyle = MATERIAL_STYLES.find(s => s.name === physicalStyleName) || MATERIAL_STYLES[0];
+    
+    // Pick Border Style (Deterministic based on title)
+    let borderStyle = 'Standard';
+    
+    // Pick Border Style (Deterministic based on title)
+    // let borderStyle = 'Standard'; // Removed redeclaration
+    if (title) {
+        let hash = 0;
+        for (let i = 0; i < title.length; i++) hash = title.charCodeAt(i) + ((hash << 5) - hash);
+        borderStyle = BORDER_STYLES[Math.abs(hash) % BORDER_STYLES.length];
+    }
 
     // Apply Dust / Fading
     const dustColor = new THREE.Color(0x5a5a4a); 
@@ -101,7 +116,7 @@ export function createBook(bookData) {
     
     // Create Placeholder/Generative Cover
     // Use visualMaterialType for the pattern style to match spine
-    const coverTex = createCoverTexture(bookData, finalCoverColor.getStyle(), visualMaterialType, age);
+    const coverTex = createCoverTexture(bookData, finalCoverColor.getStyle(), visualMaterialType, age, borderStyle);
     frontCoverMat = new THREE.MeshStandardMaterial({ 
         map: coverTex, 
         roughness: finalRoughness,
@@ -123,7 +138,7 @@ export function createBook(bookData) {
     });
 
     // 3. Back Texture
-    const backTexture = createBackTexture(bookData, finalCoverColor.getStyle(), visualMaterialType, age, pages, finalPageColor);
+    const backTexture = createBackTexture(bookData, finalCoverColor.getStyle(), visualMaterialType, age, pages, finalPageColor, borderStyle);
     const backCoverMat = new THREE.MeshStandardMaterial({ 
         map: backTexture, 
         roughness: finalRoughness,

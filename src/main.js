@@ -1,15 +1,49 @@
 import './style.css';
 import { initLibrary, stopLibrary } from './library/LibraryApp.js';
 import { initCarousel, stopCarousel } from './carousel/CarouselApp.js';
+import { loadAllBooks } from './common/data.js';
+import { initSearch } from './common/search.js';
 
 // Setup View Switching Logic
 const toggleBtn = document.getElementById('view-toggle');
 let currentView = 'carousel'; // 'carousel' | 'library'
 
+// Initialize Search
+loadAllBooks().then(books => {
+    initSearch(books, (bookId) => {
+        // Handle selection
+        const url = new URL(window.location);
+        url.searchParams.set('book', bookId);
+        window.history.pushState({}, '', url);
+        
+        // Trigger view update
+        if (currentView === 'library') {
+             initLibrary();
+        } else {
+             initCarousel();
+        }
+    });
+});
+
 // Router Logic
 function handleRoute() {
     const path = window.location.pathname;
     const urlParams = new URLSearchParams(window.location.search);
+
+    // Redirect Root to Preference
+    if (path === '/' || path === '/index.html') {
+        const pref = localStorage.getItem('preferredView');
+        const url = new URL(window.location);
+        if (pref === 'library') {
+            url.pathname = '/library';
+        } else {
+            url.pathname = '/carousel';
+        }
+        window.history.replaceState({}, '', url);
+        handleRoute(); // Re-run with new path
+        return;
+    }
+
     const bookId = urlParams.get('book');
 
     if (path === '/library') {
@@ -78,11 +112,13 @@ if (toggleBtn) {
         
         if (currentView === 'carousel') {
             // Switch to Library
+            localStorage.setItem('preferredView', 'library');
             url.pathname = '/library';
             window.history.pushState({}, '', url);
             handleRoute();
         } else {
             // Switch to Carousel
+            localStorage.setItem('preferredView', 'carousel');
             url.pathname = '/carousel';
             window.history.pushState({}, '', url);
             handleRoute();
