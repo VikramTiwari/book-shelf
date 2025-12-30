@@ -57,12 +57,47 @@
     <div id="ui-controls">
       <button id="nav-left" class="nav-btn left" aria-label="Left">◀</button>
       <button id="nav-flip" class="nav-btn flip" aria-label="Flip">
-        <svg focusable="false" aria-hidden="true" viewBox="0 0 24 24" data-testid="FlipIcon" fill="currentColor" width="24" height="24">
-          <path d="M15 21h2v-2h-2v2zm4-12h2V7h-2v2zM3 5v14c0 1.1.9 2 2 2h4v-2H5V5h4V3H5c-1.1 0-2 .9-2 2zm16-2v2h2c0-1.1-.9-2-2-2zm-8 20h2V1h-2v22zm8-6h2v-2h-2v2zM15 5h2V3h-2v2zm4 8h2v-2h-2v2zm0 8c1.1 0 2-.9 2-2h-2v2z"></path>
+        <svg
+          focusable="false"
+          aria-hidden="true"
+          viewBox="0 0 24 24"
+          data-testid="FlipIcon"
+          fill="currentColor"
+          width="24"
+          height="24"
+        >
+          <path
+            d="M15 21h2v-2h-2v2zm4-12h2V7h-2v2zM3 5v14c0 1.1.9 2 2 2h4v-2H5V5h4V3H5c-1.1 0-2 .9-2 2zm16-2v2h2c0-1.1-.9-2-2-2zm-8 20h2V1h-2v22zm8-6h2v-2h-2v2zM15 5h2V3h-2v2zm4 8h2v-2h-2v2zm0 8c1.1 0 2-.9 2-2h-2v2z"
+          ></path>
         </svg>
       </button>
       <button id="nav-right" class="nav-btn right" aria-label="Right">▶</button>
+      <button
+        id="view-toggle"
+        class="nav-btn view-toggle desktop-only"
+        style="
+          position: fixed;
+          top: 20px;
+          right: 20px;
+          z-index: 1000;
+          padding: 10px 20px;
+          background: rgba(255, 255, 255, 0.1);
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          color: white;
+          border-radius: 20px;
+          cursor: pointer;
+          backdrop-filter: blur(5px);
+        "
+      >
+        <svg id="icon-library" class="icon" viewBox="0 0 24 24" fill="currentColor" width="24" height="24">
+            <path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9H9V9h10v2zm-4 4H9v-2h6v2zm4-8H9V5h10v2z"/>
+        </svg>
+        <svg id="icon-carousel" class="icon hidden" viewBox="0 0 24 24" fill="currentColor" width="24" height="24">
+            <path d="M7 19h10V4H7v15zm-5-2h4V6H2v11zM18 6v11h4V6h-4z"/>
+        </svg>
+      </button>
     </div>
+    <div id="library-app" class="hidden"></div>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
