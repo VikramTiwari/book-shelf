@@ -5,7 +5,7 @@ import { loadBooks, booksData } from './data.js';
 import { setupInteraction, moveShelf, updateFocus, deselectBook } from './interaction.js';
 import { bookMeshes } from './view.js';
 import { preloadGenreFonts } from './spine.js';
-import { createGradientBackground, animateGradient } from '../common/background.js';
+import { createGradientBackground, animateGradient, createBackground, animateBackground } from '../common/background.js';
 import './style.css';
 
 export let scene, camera, renderer, controls;
@@ -49,14 +49,16 @@ export function initLibrary() {
     scene = new THREE.Scene();
 
     // Background
+    scene.background = new THREE.Color('#111111');
     createGradientBackground(scene);
+    createBackground(scene);
 
     // 2. Setup Camera
-    camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.position.set(0, 5, 12);
 
     // 3. Setup Renderer
-    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.shadowMap.enabled = true;
@@ -167,6 +169,9 @@ function animate() {
     const time = clock.getElapsedTime();
     if (typeof animateGradient === 'function') {
         animateGradient(time, 0); // Direction 0 for now
+    }
+    if (typeof animateBackground === 'function') {
+        animateBackground(camera);
     }
 
     controls.update();

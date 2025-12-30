@@ -4,6 +4,7 @@ import { backgroundItemGenerators } from './backgroundItems.js';
 const backgroundMeshes = [];
 
 let gradientUniforms = null;
+let gradientSphere = null;
 let targetDirection = 0;
 let currentDirection = 0;
 
@@ -194,8 +195,8 @@ export function createGradientBackground(scene) {
          side: THREE.BackSide
     });
     
-    const sphere = new THREE.Mesh(sphereGeo, sphereMat);
-    scene.add(sphere);
+    gradientSphere = new THREE.Mesh(sphereGeo, sphereMat);
+    scene.add(gradientSphere);
 }
 
 
@@ -283,6 +284,10 @@ export function createBackground(scene, count = 10) {
 export function animateBackground(camera) {
     if (!camera) return;
 
+    if (gradientSphere) {
+        gradientSphere.position.copy(camera.position);
+    }
+
     // Current time approximation (could pass in global time for perfect sync)
     const time = Date.now() * 0.001;
     
@@ -306,8 +311,10 @@ export function animateBackground(camera) {
         // 1. Move Horizontally (Flow)
         mesh.position.x += ud.velocity.x * 0.01; 
 
-        // 2. Oscillate Vertically (Sine Wave)
-        mesh.position.y = ud.yBase + Math.sin(time * ud.oscillation.freq + ud.oscillation.phase) * ud.oscillation.amp;
+        // 2. Oscillate Vertically (Sine Wave) + Follow Camera Y
+        // Center items relative to the camera
+        const relativeY = ud.yBase - 1.5; // 1.5 was the original center
+        mesh.position.y = camera.position.y + relativeY + Math.sin(time * ud.oscillation.freq + ud.oscillation.phase) * ud.oscillation.amp;
 
         // 3. Rotate
         mesh.rotation.x += ud.rotSpeed.x;

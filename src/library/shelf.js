@@ -25,35 +25,9 @@ export function buildShelfStructure(shelfGroup, rowsNeeded, totalHeight, liquidG
     };
 
     // --- Build Shelf Structure ---
-    const backGeo = new RoundedBoxGeometry(CONFIG.shelfWidth, totalHeight + 1, 0.2, 4, 0.1); // Increased radius
-    // Back Panel: Dominant face is Width x Height
-    const backMat = applyWoodMat(CONFIG.shelfWidth, totalHeight + 1, liquidGlassMaterial);
-    const backPanel = new THREE.Mesh(backGeo, backMat);
-    backPanel.position.z = -CONFIG.shelfDepth / 2;
-    backPanel.position.y = (totalHeight + 1) / 2;
-    backPanel.castShadow = true;
-    backPanel.receiveShadow = true;
-    shelfGroup.add(backPanel);
 
-    const sideGeo = new RoundedBoxGeometry(0.2, totalHeight + 1, CONFIG.shelfDepth, 4, 0.1); // Thinner (0.2), radius 0.1
-    // Side Panel: Dominant face is Depth x Height (viewed from side) or Width x Height
-    // Since width is small (0.2), we scale mainly by Depth (4) and Height.
-    // But uv mapping on Box usually maps X face to Depth??? No.
-    // BoxGeometry Side faces (Right/Left) map Depth vs Height.
-    // Let's try scaling by Depth & Height.
-    const sideMat = applyWoodMat(CONFIG.shelfDepth, totalHeight + 1, liquidGlassMaterial);
 
-    const leftPanel = new THREE.Mesh(sideGeo, sideMat);
-    leftPanel.position.set(-CONFIG.shelfWidth / 2, (totalHeight + 1) / 2, 0);
-    leftPanel.receiveShadow = true;
-    leftPanel.castShadow = true;
-    shelfGroup.add(leftPanel);
 
-    const rightPanel = new THREE.Mesh(sideGeo, sideMat);
-    rightPanel.position.set(CONFIG.shelfWidth / 2, (totalHeight + 1) / 2, 0);
-    rightPanel.receiveShadow = true;
-    rightPanel.castShadow = true;
-    shelfGroup.add(rightPanel);
 
     const topGeo = new RoundedBoxGeometry(CONFIG.shelfWidth + 1, 0.2, CONFIG.shelfDepth + 0.2, 4, 0.05); // Thinner top
     // Top Panel: Dominant face is Width x Depth (viewed from top/bottom)
