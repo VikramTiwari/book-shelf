@@ -95,10 +95,10 @@ function parseCSV(text) {
             let isbn = getValue(idxISBN) || getValue(idxISBNFallback) || '';
             isbn = isbn.replace(/[="]/g, '');
 
-            let coverUrl = 'https://placehold.co/400x600/1a1a20/FFF?text=No+Cover';
+            let coverUrl = '';
             if (isbn && isbn.match(/^\d+$/)) {
-                // Use local proxy defined in vite.config.js
-                coverUrl = `/covers/b/isbn/${isbn}-L.jpg`;
+                // Direct OpenLibrary URL to avoid local proxy dependency
+                coverUrl = `https://covers.openlibrary.org/b/isbn/${isbn}-L.jpg`;
             }
 
             const title = getValue(idxTitle);

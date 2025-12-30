@@ -200,30 +200,49 @@ export function createBook(bookData) {
         ...bookData,
         isTextureLoaded: false,
         loadTexture: () => {
-            if (bookGroup.userData.isTextureLoaded || !cover_url || cover_url.includes('placehold.co')) return;
+            if (bookGroup.userData.isTextureLoaded || !cover_url) {
+                // If no URL and not loaded, ensure we are using the procedural cover
+                // (which is the default, so nothing to do unless we need to revert?)
+                // But generally, isTextureLoaded=false means procedural is active.
+                return;
+            }
             
             // Mark as loaded to prevent duplicate calls
             bookGroup.userData.isTextureLoaded = true;
 
-            const loader = new THREE.TextureLoader();
-            loader.load(cover_url, (tex) => {
-                tex.colorSpace = THREE.SRGBColorSpace;
-                
-                // Recalculate material properties for image
-                const visualRoughness = Math.min(1.0, 0.5 + addedRoughness);
-                const newMat = coverMesh.material.clone(); 
-                
-                newMat.map = tex;
-                newMat.roughness = visualRoughness;
-                newMat.metalness = 0;
-                
-                // Apply Age Tinting
-                if (age > 40) newMat.color.setHex(0xfffff0);
-                if (age > 80) newMat.color.lerp(new THREE.Color(0xc0b090), 0.2);
-                
-                coverMesh.material = newMat;
-                coverMesh.material.needsUpdate = true;
-            });
+            const loader = new THREE.TextureLoader().setCrossOrigin('anonymous');
+            loader.load(
+                cover_url, 
+                (tex) => {
+                    // Check for invalid/placeholder images (often 1x1 pixel)
+                    if (tex.image.width < 10 || tex.image.height < 10) {
+                        console.warn(`Cover image for ${title} is too small (${tex.image.width}x${tex.image.height}), using procedural cover.`);
+                        return;
+                    }
+
+                    tex.colorSpace = THREE.SRGBColorSpace;
+                    
+                    // Recalculate material properties for image
+                    const visualRoughness = Math.min(1.0, 0.5 + addedRoughness);
+                    const newMat = coverMesh.material.clone(); 
+                    
+                    newMat.map = tex;
+                    newMat.roughness = visualRoughness;
+                    newMat.metalness = 0;
+                    
+                    // Apply Age Tinting
+                    if (age > 40) newMat.color.setHex(0xfffff0);
+                    if (age > 80) newMat.color.lerp(new THREE.Color(0xc0b090), 0.2);
+                    
+                    coverMesh.material = newMat;
+                    coverMesh.material.needsUpdate = true;
+                },
+                undefined,
+                (err) => {
+                    console.warn('Texture load failed for', title, err);
+                    // On error, we just keep the procedural cover.
+                }
+            );
         }
     };
 

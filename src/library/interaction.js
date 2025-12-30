@@ -195,7 +195,7 @@ function checkVisibleShelves() {
         const rowY = row[0].position.y;
         if (Math.abs(rowY - camY) < viewHeight) {
             const rightEnd = row[row.length - 1];
-            loadCoverTexture(rightEnd);
+            // loadCoverTexture(rightEnd); // Disable pre-loading to ensure single-book loading policy
         }
     });
 }
