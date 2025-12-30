@@ -33,9 +33,25 @@ scene.add(directionalLight);
 
 // Initialize Camera
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+// Helper to determine camera Z based on viewport
+function getCameraZ() {
+    // If width < 768 (Mobile), pull back to see neighbors
+    // Base distance 1.2 is good for Desktop
+    // With tighter spacing (0.7), we can be closer than 2.5. Let's try 1.8.
+    if (window.innerWidth < 768) {
+        return 1.8; 
+    }
+    return 1.2;
+}
+
+// Helper for dynamic book spacing
+function getSpacingX() {
+    return window.innerWidth < 768 ? 0.8 : 1.2;
+}
+
 // Close Zoom
-camera.position.set(0, 1.5, 1.2); 
-camera.lookAt(0, 1.5, 0);
+camera.position.set(0, 1.5, getCameraZ()); 
 camera.lookAt(0, 1.5, 0);
 
 // Initialize Renderer
@@ -55,8 +71,19 @@ window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
+    
+    // Update Layout for new screen size
+    updateBookPositions();
 });
 
+function updateBookPositions() {
+    const spacing = getSpacingX();
+    allBookMeshes.forEach((mesh, index) => {
+        mesh.position.x = index * spacing;
+    });
+}
+
+// Global Animate Loop needs access to these
 // Global Animate Loop needs access to these
 // Global Animate Loop needs access to these
 // Global Animate Loop needs access to these
@@ -67,11 +94,14 @@ let previousMousePosition = { x: 0, y: 0 };
 // Navigation State
 let allBookMeshes = [];
 let currentBookIndex = 0;
-const SPACING_X = 1.2;
+// const SPACING_X = 1.2; // Removed in favor of getSpacingX()
 
 // Directional Flow State
 let targetFlow = 0; // -1 (Left), 0 (Drag/Idle), 1 (Right)
 let currentFlow = 0;
+
+// Flip State
+let targetRotationBase = 0.2; // Initial base tilt
 
 function animate() {
     requestAnimationFrame(animate);
@@ -81,19 +111,8 @@ function animate() {
     controls.update();
 
     // Lerp flow
-    // Decay to 0.1 (slow forward drift) if 0
-    // If navigating, push to -2 or 2
-    
-    // We need to set targetFlow based on interaction
-    // We'll update it in the navigation function
-    
-    // Simple decay back to idle
-    const idleFlow = 0.5; // Always moving slowly right (or left)?
-    // Let's settle to 0.5
-    
     currentFlow += (targetFlow - currentFlow) * 0.05;
-    // Decay targetFlow back to idle
-    targetFlow += (idleFlow - targetFlow) * 0.02;
+    targetFlow += (0.5 - targetFlow) * 0.02; // Decay to idleFlow (0.5)
 
     // Animate Gradient Nebula with Direction
     if (typeof animateGradient === 'function') {
@@ -112,17 +131,11 @@ function animate() {
         const idleAngle = Math.sin(elapsedTime * 0.8) * 0.15;
         
         // Add a slight permanent tilt so it's never perfectly flat (e.g., +0.1)
-        const baseTilt = 0.2; 
+        // const baseTilt = 0.2; // Replaced by targetRotationBase
         
-        // Smoothly interp to this? Over-writing rotation directly might conflict 
-        // if we have other logic, but currently we don't for idle.
-        // We should lerp towards it for smoothness when switching books
-        
-        const targetRotY = baseTilt + idleAngle;
+        const targetRotY = targetRotationBase + idleAngle;
         
         // Lerp rotation
-        // We access .y directly. 
-        // Note: verify if currentBookMesh.rotation is Euler. Yes.
         window.currentBookMesh.rotation.y += (targetRotY - window.currentBookMesh.rotation.y) * 0.05;
     }
     
@@ -131,26 +144,22 @@ function animate() {
         const targetBook = allBookMeshes[currentBookIndex];
         
         // Target position: centred on the book, slightly zoomed out
+        // Dynamic Z offset based on screen size
+        const targetZ = getCameraZ() - 0.3; // getCameraZ returns 1.2 or 2.5. 
+        // We want target to be relative to book Z (which is 0 usually).
+        // If getCameraZ is the "initial" z, let's use that as the reference distance.
+        // Actually, let's just use getCameraZ() directly as the offset from book.z?
+        // Original code was book.z + 0.9. Initial Setup was 1.2 (which is 0+1.2).
+        
         const targetPos = new THREE.Vector3(
             targetBook.position.x,
             targetBook.position.y,
-            targetBook.position.z + 0.9 // Distance from book
+            targetBook.position.z + (window.innerWidth < 768 ? 2.2 : 0.9) // Dynamic offset
         );
         
-        // Lerp camera position
         camera.position.lerp(targetPos, 0.05);
         
-        // Lerp camera lookAt (target)
-        // We want to look at the book center
-        const currentLookAt = new THREE.Vector3();
-        camera.getWorldDirection(currentLookAt);
-        // This is a bit complex with OrbitControls active. 
-        // Better to update controls.target if using OrbitControls, 
-        // OR simply manually control camera if OrbitControls is disabled/limited.
-        
-        // Since we disabled OrbitControls keys/mouse largely, let's update the controls target 
-        // so the camera pivots around the selected book if the user drags (if we allow that).
-        
+        // Update controls target
         const targetLookAt = new THREE.Vector3(
             targetBook.position.x,
             targetBook.position.y,
@@ -166,8 +175,6 @@ function animate() {
         allBookMeshes.forEach((mesh, index) => {
             const isSelected = index === currentBookIndex;
             const targetScale = isSelected ? 1.0 : 0.7; // Scale others down
-            
-            // Lerp scale
             mesh.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.1);
         });
     }
@@ -211,6 +218,9 @@ function navigateToBook(index) {
     if (index < 0 || index >= allBookMeshes.length) return;
     
     currentBookIndex = index;
+    // Reset flip state when changing books
+    targetRotationBase = 0.2;
+
     const bookData = allBookMeshes[index].userData;
     
     if (bookData && bookData.id) {
@@ -244,6 +254,11 @@ document.addEventListener('keydown', (e) => {
                 targetFlow = 5.0; // Flow Right implies moving Left
             }
             break;
+        case 'ArrowUp':
+        case 'ArrowDown':
+            // Flip the book
+            targetRotationBase += Math.PI;
+            break;
     }
 });
 
@@ -263,6 +278,11 @@ document.getElementById('nav-right').addEventListener('click', () => {
         navigateToBook(currentBookIndex + 1);
         targetFlow = -5.0;
     }
+});
+
+document.getElementById('nav-flip').addEventListener('click', () => {
+    // Add 180 degrees (PI) to the target rotation
+    targetRotationBase += Math.PI;
 });
 
 animate();
@@ -315,7 +335,9 @@ function processBooks(data) {
         const { mesh } = createBook(book);
         
         // Single Horizontal Row (Carousel)
-        const xOffset = index * SPACING_X;
+        // Initial positioning - will be updated by resizing if needed, 
+        // but let's set it correctly first.
+        const xOffset = index * getSpacingX();
         const yOffset = 0; // Keep everything level
         
         mesh.position.set(xOffset, yOffset, 0);

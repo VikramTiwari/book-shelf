@@ -57,8 +57,8 @@ body {
 }
 
 
-@media (min-width: 1024px) {
-    #ui-controls {
-        display: none;
-    }
+/* UI Controls visible on all screens now */
+
+.nav-btn.flip {
+    font-size: 28px; /* Slightly larger icon */
 }
