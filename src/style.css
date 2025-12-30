@@ -9,6 +9,16 @@ body {
     Arial, sans-serif;
 }
 
+.hidden {
+  display: none !important;
+}
+
+@media (max-width: 768px) {
+  .desktop-only {
+    display: none !important;
+  }
+}
+
 #app {
   position: fixed; /* Lock to viewport */
   top: 0;
