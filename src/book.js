@@ -77,12 +77,19 @@ export function createBook(bookData) {
     // We will build a Group
     const bookGroup = new THREE.Group();
 
-    // Pick random style
-    const styleIdx = Math.floor(Math.random() * MATERIAL_STYLES.length);
+    // Deterministic Selection based on Title/ISBN
+    // We use a salt to ensure Color is independent of Style
+    const seed = Title + (bookData['ISBN'] || bookData['ISBN13'] || "");
+    const styleHash = getStringHash(seed + "STYLE");
+    const colorHash = getStringHash(seed + "COLOR");
+
+    // Pick deterministic style
+    const styleIdx = Math.abs(styleHash) % MATERIAL_STYLES.length;
     const selectedStyle = MATERIAL_STYLES[styleIdx];
 
-    // Pick random color from palette
-    const colorHex = BOOK_PALETTE[Math.floor(Math.random() * BOOK_PALETTE.length)];
+    // Pick deterministic color from palette
+    const colorIndex = Math.abs(colorHash) % BOOK_PALETTE.length;
+    const colorHex = BOOK_PALETTE[colorIndex];
     const baseColor = new THREE.Color(colorHex);
 
     // Apply Dust / Fading to Base Color
@@ -222,4 +229,16 @@ export function createBook(bookData) {
     };
 
     return { mesh: bookGroup, thickness: totalThickness, height: baseHeight, width: baseWidth };
+}
+
+// Simple String Hash
+function getStringHash(str) {
+    let hash = 0;
+    if (!str || str.length === 0) return hash;
+    for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash |= 0; // Convert to 32bit integer
+    }
+    return hash;
 }

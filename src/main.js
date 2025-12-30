@@ -35,19 +35,21 @@ scene.add(directionalLight);
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 
 // Helper to determine camera Z based on viewport
+// Helper to determine camera Z based on viewport
 function getCameraZ() {
     // If width < 768 (Mobile), pull back to see neighbors
     // Base distance 1.2 is good for Desktop
-    // With tighter spacing (0.7), we can be closer than 2.5. Let's try 1.8.
+    // With tighter spacing (0.55), we can be closer (1.4) to make main book bigger
     if (window.innerWidth < 768) {
-        return 1.8; 
+        return 1.4; 
     }
     return 1.2;
 }
 
 // Helper for dynamic book spacing
+// Helper for dynamic book spacing
 function getSpacingX() {
-    return window.innerWidth < 768 ? 0.8 : 1.2;
+    return window.innerWidth < 768 ? 0.55 : 1.2;
 }
 
 // Close Zoom
@@ -169,13 +171,23 @@ function animate() {
         controls.update();
 
         // Update global current mesh for rotation interaction
+        // Update global current mesh for rotation interaction
         window.currentBookMesh = targetBook;
         
         // Dynamic Scaling
+        const isMobile = window.innerWidth < 768;
+        const selectedScale = isMobile ? 1.6 : 1.0;
+        const sideScale = isMobile ? 0.5 : 0.7;
+
         allBookMeshes.forEach((mesh, index) => {
             const isSelected = index === currentBookIndex;
-            const targetScale = isSelected ? 1.0 : 0.7; // Scale others down
+            const targetScale = isSelected ? selectedScale : sideScale; 
             mesh.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.1);
+
+            // Z-Position (Pop out selected book on mobile to avoid overlap)
+            // Move active book forward (Z+) so it renders on top of neighbors
+            const targetZ = isSelected && isMobile ? 1.0 : 0.0;
+            mesh.position.z += (targetZ - mesh.position.z) * 0.1;
         });
     }
 
