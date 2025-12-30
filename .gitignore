@@ -1,2 +1,5 @@
 node_modules
 public/goodreads_library_export.csv
+
+dist/
+.DS_Store
