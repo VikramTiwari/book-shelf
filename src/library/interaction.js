@@ -219,9 +219,18 @@ function showDetails(book) {
     const reviewEl = container.querySelector('#detail-review');
     if(reviewEl) reviewEl.textContent = book.review ? `"${book.review}"` : "";
 
-    const formattedDate = formatDate(book.date_read);
+    const dateRead = formatDate(book.date_read);
+    const dateAdded = formatDate(book.date_added);
     const dateEl = container.querySelector('#detail-date');
-    if(dateEl) dateEl.textContent = formattedDate ? `Read on: ${formattedDate}` : "";
+    if(dateEl) {
+        if (dateRead) {
+            dateEl.textContent = `Read on: ${dateRead}`;
+        } else if (dateAdded) {
+            dateEl.textContent = `Added on: ${dateAdded}`;
+        } else {
+            dateEl.textContent = "";
+        }
+    }
 
     const ratingEl = container.querySelector('#detail-rating');
     if(ratingEl) ratingEl.textContent = '★'.repeat(book.rating) + '☆'.repeat(5 - book.rating);
@@ -314,4 +323,11 @@ function animateCameraToY(targetY, currentOffset) {
         }
     }
     requestAnimationFrame(update);
+}
+
+export function nudgeCamera(yAmount) {
+    if (_camera && _controls) {
+        _camera.position.y += yAmount;
+        _controls.target.y += yAmount;
+    }
 }

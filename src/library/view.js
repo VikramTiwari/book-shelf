@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
 import { scene } from './LibraryApp.js';
-import { updateFocus } from './interaction.js';
+import { updateFocus, nudgeCamera } from './interaction.js';
 import { createSpineTexture, getBookColor } from './spine.js';
 import { createWoodTexture } from './utils.js';
 import { buildShelfStructure, createShelfLabel } from './shelf.js';
@@ -19,12 +19,17 @@ export function buildFullBookshelf(books) {
     const urlParams = new URLSearchParams(window.location.search);
     const booksPerShelf = parseInt(urlParams.get('per_shelf')) || 10;
 
-    const woodTexture = createWoodTexture();
-    const woodMaterial = new THREE.MeshStandardMaterial({
-        map: woodTexture,
-        roughness: 0.7,
-        metalness: 0.0,
-        color: 0xffffff
+    // Futuristic Glass Material
+    const glassMaterial = new THREE.MeshPhysicalMaterial({
+        color: 0xffffff, 
+        metalness: 0.05,
+        roughness: 0.02,
+        transmission: 0.99,  
+        thickness: 0.5,
+        clearcoat: 1.0,
+        ior: 1.5,
+        transparent: true,
+        opacity: 1.0
     });
 
     const rows = [];
@@ -35,6 +40,22 @@ export function buildFullBookshelf(books) {
         if (b.shelf === 'to-read') return 'To Read';
         return 'Read';
     };
+
+    // Calculate Stats for Bottom Banner
+    const stats = {
+        count: books.length,
+        minYear: '2020', // Default fallback
+        maxYear: new Date().getFullYear()
+    };
+    
+    // Dates
+    const allDates = books.map(b => b.date_read || b.date_added).filter(d => d);
+    if (allDates.length > 0) {
+        allDates.sort();
+        stats.minYear = new Date(allDates[0]).getFullYear();
+        stats.maxYear = new Date(allDates[allDates.length - 1]).getFullYear();
+    }
+
 
     books.forEach((book) => {
         if (currentRow.length >= booksPerShelf) {
@@ -49,7 +70,15 @@ export function buildFullBookshelf(books) {
                 rows.push(currentRow);
                 currentRow = [];
 
-                if (currentCat === 'Reading' || newCat === 'Reading') {
+                // Insert Banners
+                if (newCat === 'Reading') {
+                    // Above Reading -> Top Banner
+                    rows.push({ type: 'banner_top' });
+                } else if (currentCat === 'Reading') {
+                    // Below Reading -> Bottom Banner
+                    rows.push({ type: 'banner_bottom', stats: stats });
+                } else if (currentCat === 'Reading' || newCat === 'Reading') {
+                    // Fallback for safety if logic differs
                     rows.push([]); 
                 }
             }
@@ -67,7 +96,7 @@ export function buildFullBookshelf(books) {
     scrollBounds.min = minShelfY - 2;
     scrollBounds.max = maxShelfY + CONFIG.bookHeight + 2;
 
-    buildShelfStructure(shelfGroup, rowsNeeded, totalHeight, woodMaterial);
+    buildShelfStructure(shelfGroup, rowsNeeded, totalHeight, glassMaterial);
 
     for (let r = 0; r < rowsNeeded; r++) {
         const sY = 1 + r * CONFIG.levelHeight;
@@ -82,10 +111,18 @@ export function buildFullBookshelf(books) {
     let bookGlobalIndex = 0;
     let startFocusPosition = null;
 
-    rows.forEach((rowBooks, rowIndex) => {
+    rows.forEach((rowBytes, rowIndex) => {
         let rowWidthTotal = 0;
         const rowBookProps = [];
         navigationGrid[rowIndex] = [];
+        
+        let rowBooks = rowBytes;
+        // Skip processing books if it's a banner object
+        if (!Array.isArray(rowBytes)) {
+            // It's a banner, no books to render in this row loop
+            // navigationGrid needs an entry though? Empty array is fine.
+            return;
+        }
 
         rowBooks.forEach(book => {
             let width = book.pages * CONFIG.pageThicknessMultiplier;
@@ -205,6 +242,8 @@ export function buildFullBookshelf(books) {
 
     if (startFocusPosition) {
         updateFocus(startFocusPosition.row, startFocusPosition.col, true);
+        // Nudge camera up to show banner
+        nudgeCamera(CONFIG.levelHeight * 0.45); 
     } else if (navigationGrid.length > 0 && navigationGrid[0].length > 0) {
         updateFocus(0, 0, true);
     }
