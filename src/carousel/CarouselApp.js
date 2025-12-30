@@ -25,7 +25,10 @@ const appContainer = document.getElementById('app');
 const uiControls = document.getElementById('ui-controls');
 
 export function initCarousel() {
-    if (isActive) return;
+    if (isActive) {
+        syncWithUrl();
+        return;
+    }
     isActive = true;
     
     // Show UI
@@ -36,6 +39,7 @@ export function initCarousel() {
 
     if (isInitialized) {
         animate();
+        syncWithUrl();
         return;
     }
 
@@ -330,6 +334,40 @@ function setupEventListeners() {
     });
 }
 
-function toRadians(angle) {
-    return angle * (Math.PI / 180);
+function syncWithUrl() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const bookId = urlParams.get('book');
+    if (bookId) {
+         const foundIndex = allBookMeshes.findIndex(m => m.userData.id === bookId);
+         if (foundIndex !== -1 && foundIndex !== currentBookIndex) {
+             navigateToBook(foundIndex);
+         }
+    } else {
+        // Reset to start if no book param
+        if (currentBookIndex !== 0) {
+            currentBookIndex = 0;
+            // We need a reset function or just reuse logic
+            // But navigateToBook(0) sets URL to ?book=... which we might not want if we want "landing page" clean URL.
+            // Actually, if we are at landing page/root, maybe selecting 0 is fine but we don't want to enforce it?
+            // "go back to the landing page setup" could mean just default camera with no book selected/focused.
+            // But Carousel always has a "currentBookIndex" centered.
+            // Assuming index 0 is fine, but maybe we shouldn't push state.
+            // Let's just navigate to 0 for now but maybe avoid setting URL if it's clean?
+            // But navigateToBook sets replaceState.
+            // Let's modify navigateToBook or manually reset vars.
+            targetFlow = 0;
+            targetRotationBase = 0.2;
+            
+            // Manual Reset without URL update if possible, or just accept 0 is default.
+            // If the user wants "landing page setup", it implies the state when you first load /carousel.
+            // Which is index 0.
+            if (allBookMeshes.length > 0) {
+                 const startBook = allBookMeshes[0];
+                 controls.target.set(startBook.position.x, startBook.position.y, startBook.position.z);
+                 camera.position.set(startBook.position.x, startBook.position.y, startBook.position.z + 1.2);
+                 updateTextureWindow(0);
+            }
+        }
+    }
 }
+

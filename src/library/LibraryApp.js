@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
-import { loadBooks } from './data.js';
-import { setupInteraction, moveShelf } from './interaction.js';
+import { loadBooks, booksData } from './data.js';
+import { setupInteraction, moveShelf, updateFocus, deselectBook } from './interaction.js';
 import { bookMeshes } from './view.js';
 import { preloadGenreFonts } from './spine.js';
 import { createGradientBackground, animateGradient } from '../common/background.js';
@@ -17,7 +17,10 @@ let clock = new THREE.Clock();
 const keys = { ArrowLeft: false, ArrowRight: false };
 
 export function initLibrary() {
-    if (isActive) return;
+    if (isActive) {
+        syncWithUrl();
+        return;
+    }
     isActive = true;
 
     // Inject HTML if not present
@@ -32,6 +35,7 @@ export function initLibrary() {
     // If already initialized, just resume
     if (isInitialized) {
         animate();
+        syncWithUrl();
         return;
     }
 
@@ -108,7 +112,22 @@ export function initLibrary() {
 
     // 7. Load Data & Build
     preloadGenreFonts().then(() => {
-        loadBooks();
+        loadBooks().then((books) => {
+             const urlParams = new URLSearchParams(window.location.search);
+             const bookId = urlParams.get('book');
+             if (bookId && books && bookMeshes.length > 0) {
+                 const index = books.findIndex(b => b.id === bookId);
+                 if (index !== -1 && bookMeshes[index]) {
+                     const mesh = bookMeshes[index];
+                     if (mesh.userData && mesh.userData.gridPos) {
+                         // Small delay to ensure camera is ready?
+                         setTimeout(() => {
+                            updateFocus(mesh.userData.gridPos.row, mesh.userData.gridPos.col, true);
+                         }, 100);
+                     }
+                 }
+             }
+        });
     });
 
     // 8. Start Loop
@@ -197,4 +216,27 @@ function getLibraryHTML() {
             </div>
         </div>
     `;
+}
+
+function syncWithUrl() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const bookId = urlParams.get('book');
+    
+    if (bookId && booksData && booksData.length > 0) {
+         const index = booksData.findIndex(b => b.id === bookId);
+         if (index !== -1 && bookMeshes[index]) {
+              const mesh = bookMeshes[index];
+              if (mesh.userData && mesh.userData.gridPos) {
+                   updateFocus(mesh.userData.gridPos.row, mesh.userData.gridPos.col, true);
+              }
+         }
+    } else {
+        // Reset to default view (no selection, top of library)
+        deselectBook();
+        // Optionally reset camera to top?
+        // if (controls && camera) {
+        //     controls.target.set(0,0,0);
+        //     camera.position.set(0, 5, 12);
+        // }
+    }
 }

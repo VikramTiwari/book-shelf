@@ -128,6 +128,14 @@ function selectBook(mesh) {
 
     if (booksData && booksData[mesh.userData.id]) {
         showDetails(booksData[mesh.userData.id]);
+        
+        // Update URL
+        const newUrl = new URL(window.location);
+        newUrl.searchParams.set('book', mesh.userData.id);
+        window.history.replaceState(null, '', newUrl);
+        if (booksData[mesh.userData.id].title) {
+             document.title = `Vik's Books | ${booksData[mesh.userData.id].title}`;
+        }
     }
 }
 
@@ -158,7 +166,7 @@ function loadCoverTexture(mesh) {
     }
 }
 
-function deselectBook() {
+export function deselectBook() {
     if (window.coverLoadTimeout) clearTimeout(window.coverLoadTimeout);
     if (!selectedBook) return;
 
@@ -169,6 +177,12 @@ function deselectBook() {
 
     selectedBook = null;
     hideDetails();
+    
+    // Clear URL
+    const newUrl = new URL(window.location);
+    newUrl.searchParams.delete('book');
+    window.history.replaceState(null, '', newUrl);
+    document.title = "Vik's Books";
 }
 
 function showDetails(book) {

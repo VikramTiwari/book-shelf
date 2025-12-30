@@ -4,7 +4,7 @@ import { buildFullBookshelf } from './view.js';
 export let booksData = [];
 
 export function loadBooks() {
-    fetch('/data.csv')
+    return fetch('/data.csv')
         .then(res => res.text())
         .then(csvText => {
             let data = parseCSV(csvText);
@@ -32,6 +32,7 @@ export function loadBooks() {
             booksData = finalData;
 
             buildFullBookshelf(finalData);
+            return finalData;
         })
         .catch(err => console.error("Error loading books:", err));
 }
@@ -55,6 +56,7 @@ function parseCSV(text) {
     const idxYear = getIndex('Year Published');
     const idxOrigYear = getIndex('Original Publication Year');
     const idxGenre = getIndex('Genre');
+    const idxId = getIndex('Book Id');
 
     for (let i = 1; i < lines.length; i++) {
         if (!lines[i].trim()) continue;
@@ -72,6 +74,7 @@ function parseCSV(text) {
 
             if (row[idxTitle]) {
                 books.push({
+                    id: row[idxId] || '',
                     title: row[idxTitle],
                     author: row[idxAuthor],
                     cover_url: coverUrl,
