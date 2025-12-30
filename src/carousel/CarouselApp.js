@@ -24,7 +24,7 @@ window.currentBookMesh = null; // Global for now
 
 // DOM Elements
 const appContainer = document.getElementById('app');
-const uiControls = document.getElementById('ui-controls');
+// Remove static uiControls reference to ensure we get the element when it exists
 
 export function initCarousel() {
     if (isActive) {
@@ -35,6 +35,7 @@ export function initCarousel() {
     
     // Show UI
     if (appContainer) appContainer.classList.remove('hidden');
+    const uiControls = document.getElementById('ui-controls');
     if (uiControls) {
         uiControls.querySelectorAll('.nav-btn:not(.view-toggle)').forEach(el => el.classList.remove('hidden'));
     }
@@ -104,6 +105,7 @@ export function stopCarousel() {
     // Hide UI
     if (appContainer) appContainer.classList.add('hidden');
     // Hide Nav buttons only, keep Toggle
+    const uiControls = document.getElementById('ui-controls');
     if (uiControls) {
         uiControls.querySelectorAll('.nav-btn:not(.view-toggle)').forEach(el => el.classList.add('hidden'));
     }

@@ -102,6 +102,7 @@ function onMouseClick(event) {
 
 export function updateFocus(row, col, shouldMoveCamera = false) {
     currentFocus = { row, col };
+    currentShelfIndex = row; // Sync shelf index with focus
     if (!navigationGrid[row]) return;
     const mesh = navigationGrid[row][col];
     if (mesh) {
@@ -269,13 +270,13 @@ function animateCameraToY(targetY, currentOffset) {
         const ease = t * (2 - t);
         const newTargetY = startY + dist * ease;
         _controls.target.y = newTargetY;
-        _camera.position.y = newTargetY + 5; 
+        _camera.position.y = newTargetY + currentOffset; 
 
         if (t < 1) {
             requestAnimationFrame(update);
         } else {
             _controls.target.y = targetY;
-            _camera.position.y = targetY + 5;
+            _camera.position.y = targetY + currentOffset;
             checkScrollPosition();
         }
     }
