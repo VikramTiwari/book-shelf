@@ -244,28 +244,26 @@ document.addEventListener('keydown', (e) => {
                 targetFlow = 5.0; // Flow Right implies moving Left
             }
             break;
-        case 'ArrowDown':
-            // Jump 10 Forward
-            if (currentBookIndex + 10 < allBookMeshes.length) {
-                navigateToBook(currentBookIndex + 10);
-                targetFlow = -8.0; // Fast Left
-            } else {
-                navigateToBook(allBookMeshes.length - 1);
-            }
-            break;
-        case 'ArrowUp':
-            // Jump 10 Backward
-            if (currentBookIndex - 10 >= 0) {
-                navigateToBook(currentBookIndex - 10);
-                targetFlow = 8.0; // Fast Right
-            } else {
-                navigateToBook(0);
-            }
-            break;
     }
 });
 
 // Event Listeners for Discrete Navigation
+// Swipe Gestures Removed per user request (conflicts with book flipping)
+
+// On-Screen Button Listeners
+document.getElementById('nav-left').addEventListener('click', () => {
+    if (currentBookIndex - 1 >= 0) {
+        navigateToBook(currentBookIndex - 1);
+        targetFlow = 5.0;
+    }
+});
+
+document.getElementById('nav-right').addEventListener('click', () => {
+     if (currentBookIndex + 1 < allBookMeshes.length) {
+        navigateToBook(currentBookIndex + 1);
+        targetFlow = -5.0;
+    }
+});
 
 animate();
 
