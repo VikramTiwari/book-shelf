@@ -1,17 +1,5 @@
 import * as THREE from 'three';
-import {
-    createAtom, createDNA, createFlask,
-    createCrystal, createSword, createShield,
-    createCoin, createBriefcase, createChart,
-    createSatellite, createUFO, createPlanet,
-    createVirus, createPetriDish, createMushroom,
-    createCompass, createScroll, createLantern,
-    createMicrochip, createRobotHead, createFloppyDisk,
-    createHeart, createRose, createRing,
-    createToxicBarrel, createGear, createDrone,
-    createMagnifyingGlass, createCamera, createWalkieTalkie,
-    createGlobe, createAirplane, createPassport
-} from './backgroundItems.js';
+import { backgroundItemGenerators } from './backgroundItems.js';
 
 const backgroundMeshes = [];
 
@@ -215,22 +203,13 @@ export function createBackground(scene, count = 10) {
     // Only 10 items as requested, matching the 10 ribbons/smoke trails
     const finalCount = 10;
     
-    const itemGenerators = [
-        createAtom, createDNA, createFlask,
-        createCrystal, createSword, createShield,
-        createCoin, createBriefcase, createChart,
-        createSatellite, createUFO, createPlanet,
-        createVirus, createPetriDish, createMushroom,
-        createCompass, createScroll, createLantern,
-        createMicrochip, createRobotHead, createFloppyDisk,
-        createHeart, createRose, createRing,
-        createToxicBarrel, createGear, createDrone,
-        createMagnifyingGlass, createCamera, createWalkieTalkie,
-        createGlobe, createAirplane, createPassport
-    ];
+    const itemGenerators = backgroundItemGenerators;
+
+    // Shuffle generators to ensure uniqueness
+    const shuffledGenerators = [...itemGenerators].sort(() => 0.5 - Math.random());
 
     for (let i = 0; i < finalCount; i++) {
-        const generator = itemGenerators[Math.floor(Math.random() * itemGenerators.length)];
+        const generator = shuffledGenerators[i % shuffledGenerators.length];
         const mesh = generator();
         
         // --- Match Shader Logic Properties 'i' ---
@@ -301,21 +280,33 @@ export function createBackground(scene, count = 10) {
     }
 }
 
-export function animateBackground() {
+export function animateBackground(camera) {
+    if (!camera) return;
+
     // Current time approximation (could pass in global time for perfect sync)
     const time = Date.now() * 0.001;
-    const boundaryX = 12; // Wrap around point
+    
+    // View Width (approximate coverage needed)
+    // Camera is at z ~ 2.2 dist (1.2 + book z). Background items are at z ~ -5.
+    // Frustum width at z=-5 is roughly:
+    // tan(fov/2) * dist * 2 * aspect. 
+    // FOV 75, dist ~ 7. 
+    // tan(37.5) ~ 0.76. Width ~ 0.76 * 7 * 2 * aspect(1.5) ~ 16 units.
+    // Let's use a safe margin of 24 units total width (12 each side of center).
+    const range = 24; 
+    const halfRange = range / 2;
+
+    const camX = camera.position.x;
+    const minX = camX - halfRange;
+    const maxX = camX + halfRange;
 
     backgroundMeshes.forEach(mesh => {
         const ud = mesh.userData;
         
         // 1. Move Horizontally (Flow)
-        // Add "User Navigation" drag?
-        // Assuming user flow is stored in global or we just ignore for now and do constant ambient flow
-        mesh.position.x += ud.velocity.x * 0.01; // Scale speed for frame-rate
+        mesh.position.x += ud.velocity.x * 0.01; 
 
         // 2. Oscillate Vertically (Sine Wave)
-        // y = yBase + sin(t + x)
         mesh.position.y = ud.yBase + Math.sin(time * ud.oscillation.freq + ud.oscillation.phase) * ud.oscillation.amp;
 
         // 3. Rotate
@@ -323,11 +314,15 @@ export function animateBackground() {
         mesh.rotation.y += ud.rotSpeed.y;
         mesh.rotation.z += ud.rotSpeed.z;
 
-        // 4. Wrap Around
-        if (ud.velocity.x > 0 && mesh.position.x > boundaryX) {
-            mesh.position.x = -boundaryX;
-        } else if (ud.velocity.x < 0 && mesh.position.x < -boundaryX) {
-            mesh.position.x = boundaryX;
+        // 4. Wrap Around (Dynamic based on Camera X)
+        // If item falls behind to the left ( < minX ) -> Wrap to Right (maxX)
+        // If item falls ahead to the right ( > maxX ) -> Wrap to Left (minX)
+        
+        // We use a small buffer to avoid popping in view
+        if (mesh.position.x < minX - 2) {
+            mesh.position.x += range + 4;
+        } else if (mesh.position.x > maxX + 2) {
+            mesh.position.x -= (range + 4);
         }
     });
 }

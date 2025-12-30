@@ -101,7 +101,7 @@ function animate() {
     }
     
     if (typeof animateBackground === 'function') {
-        animateBackground();
+        animateBackground(camera);
     }
     
     // Idle Animation for Focused Book
