@@ -1,24 +1,14 @@
 import * as THREE from 'three';
+import { drawBackgroundPattern } from './patterns.js';
 
-export function createCoverTexture(bookData, color) {
+export function createCoverTexture(bookData, color, style = "Leather") {
     const canvas = document.createElement('canvas');
     canvas.width = 512;
     canvas.height = 800; // Aspect ratio roughly matches book
     const ctx = canvas.getContext('2d');
 
-    // Background
-    ctx.fillStyle = color;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // Add some texture/noise (simple lines)
-    ctx.strokeStyle = 'rgba(0,0,0,0.1)';
-    ctx.lineWidth = 2;
-    for (let i = 0; i < canvas.width; i += 20) {
-        ctx.beginPath();
-        ctx.moveTo(i, 0);
-        ctx.lineTo(i, canvas.height);
-        ctx.stroke();
-    }
+    // Draw Background Pattern
+    drawBackgroundPattern(ctx, canvas.width, canvas.height, style, color);
 
     // Border
     ctx.strokeStyle = '#ebd5b3'; // Gold-ish border
@@ -29,15 +19,7 @@ export function createCoverTexture(bookData, color) {
     let y = 150;
 
     // Title & Subtitle Processing
-    const fullTitle = bookData.Title;
-    let mainTitle = fullTitle;
-    let subTitle = "";
-    
-    const separatorIdx = fullTitle.indexOf(':');
-    if (separatorIdx > -1) {
-        mainTitle = fullTitle.substring(0, separatorIdx).trim();
-        subTitle = fullTitle.substring(separatorIdx + 1).trim();
-    }
+    const { mainTitle } = parseTitle(bookData.Title);
 
     // Draw Main Title
     ctx.fillStyle = 'white';
@@ -52,15 +34,7 @@ export function createCoverTexture(bookData, color) {
     const lines = wrapText(ctx, mainTitle, canvas.width / 2, y, maxWidth, lineHeightTitle, true);
     y += (lines * lineHeightTitle); // Move y down by height of title
     
-    // Draw Subtitle if exists
-    if (subTitle) {
-        y += 10; // offset
-        ctx.font = 'italic 40px Times New Roman';
-        ctx.lineWidth = 3;
-        const lineHeightSub = 50;
-        const subLines = wrapText(ctx, subTitle, canvas.width / 2, y, maxWidth, lineHeightSub, true);
-        y += (subLines * lineHeightSub);
-    }
+
     
     // Author (at bottom)
     ctx.font = 'italic 40px Times New Roman';
@@ -75,15 +49,14 @@ export function createCoverTexture(bookData, color) {
     return tex;
 }
 
-export function createSpineTexture(title, color, rating) {
+export function createSpineTexture(title, color, rating, style = "Leather") {
     const canvas = document.createElement('canvas');
     canvas.width = 64; 
     canvas.height = 512;
     const ctx = canvas.getContext('2d');
 
     // Background
-    ctx.fillStyle = color;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    drawBackgroundPattern(ctx, canvas.width, canvas.height, style, color);
 
     // Text Config
     ctx.fillStyle = 'white'; 
@@ -101,7 +74,8 @@ export function createSpineTexture(title, color, rating) {
     
     // Draw Title
     const maxLen = 20;
-    let safeTitle = title || "Untitled";
+    const { mainTitle } = parseTitle(title);
+    let safeTitle = mainTitle || "Untitled";
     if (safeTitle.length > maxLen) {
         safeTitle = safeTitle.substring(0, maxLen) + '...';
     }
@@ -150,30 +124,41 @@ export function createSpineTexture(title, color, rating) {
     return new THREE.CanvasTexture(canvas);
 }
 
-export function createBackTexture(bookData, color) {
+export function createBackTexture(bookData, color, style = "Leather") {
     const canvas = document.createElement('canvas');
     canvas.width = 512;
     canvas.height = 800; 
     const ctx = canvas.getContext('2d');
 
     // Background
-    ctx.fillStyle = color; 
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    drawBackgroundPattern(ctx, canvas.width, canvas.height, style, color);
     
     // Darken overlay
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)'; 
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)'; // Slightly lighter overlay for texture visibility 
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Border (Same as Front)
+    ctx.strokeStyle = '#ebd5b3'; // Gold-ish border
+    ctx.lineWidth = 10;
+    ctx.strokeRect(20, 20, canvas.width - 40, canvas.height - 40);
 
     const padding = 40;
     const maxWidth = canvas.width - (padding * 2); // Define maxWidth here
     let y = 80;
+
+    // Pick Font based on Genre
+    const genreStr = bookData['Genres'] || "";
+    // We just take the first one or check if any match high priority? 
+    // The simplified logic usually checks if the Genre string *contains* the key.
+    // Or we split by ; and check first? simpler to check string match.
+    const fontName = getFontForGenre(genreStr);
 
     // Title & Subtitle Split
     const { mainTitle, subTitle } = parseTitle(bookData.Title);
 
     // Main Title
     ctx.fillStyle = 'white';
-    ctx.font = 'bold 45px Arial'; 
+    ctx.font = `bold 45px "${fontName}"`; 
     ctx.textAlign = 'center';
     
     const lines = wrapText(ctx, mainTitle, canvas.width / 2, y, maxWidth, 55);
@@ -284,6 +269,30 @@ function parseTitle(fullTitle) {
     return { mainTitle, subTitle };
 }
 
+function getFontForGenre(genreString) {
+    if (!genreString) return 'Comic Neue'; // Default
+    
+    const g = genreString.toLowerCase();
+    
+    // Top 10 Mapping
+    if (g.includes('science fiction')) {
+        if (g.includes('general')) return 'Share Tech Mono'; // "Fiction, science fiction, general"
+        if (g.includes('hard')) return 'Orbitron'; // Hard scifi
+        return 'Audiowide'; // Default SciFi
+    }
+    if (g.includes('fantasy')) {
+        if (g.includes('fiction')) return 'Jolly Lodger'; // "Fantasy fiction"
+        return 'Cinzel Decorative'; // "Fantasy"
+    }
+    if (g.includes('new york times bestseller')) return 'Oswald';
+    if (g.includes('discworld')) return 'Henny Penny';
+    if (g.includes('history')) return 'MedievalSharp';
+    if (g.includes('american literature')) return 'Special Elite';
+    if (g.includes('fiction')) return 'Lora'; // "Fiction" is very broad, put last
+
+    return 'Comic Neue'; // Unmapped 11th font
+}
+
 function formatDate(dateString) {
     if (!dateString) return '';
     try {
@@ -320,3 +329,5 @@ function wrapText(ctx, text, x, y, maxWidth, lineHeight, stroke = false) {
     ctx.fillText(line, x, y);
     return lineCount;
 }
+
+

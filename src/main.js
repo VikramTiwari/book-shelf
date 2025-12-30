@@ -57,13 +57,7 @@ window.addEventListener('resize', () => {
 });
 
 // Global Animate Loop needs access to these
-window.shelfLocations = [];
-window.shelfLabels = [];
-window.currentShelfIndex = 0;
-window.targetShelfIndex = 0;
-window.cameraBasePos = new THREE.Vector3(0, 1, 2);
-// Define base lookAt in window scope too if not already
-window.cameraBaseLookAt = new THREE.Vector3(0, -5, -4);
+// Global Animate Loop needs access to these
 window.currentBookMesh = null;
 let isDragging = false;
 let previousMousePosition = { x: 0, y: 0 };
@@ -71,26 +65,7 @@ let previousMousePosition = { x: 0, y: 0 };
 function animate() {
     requestAnimationFrame(animate);
     
-    // Smooth Scroll to Target Index
-    if (window.shelfLocations.length > 0) {
-        const locations = window.shelfLocations;
-        const targetIndex = window.targetShelfIndex;
-        
-        const y0 = locations[0];
-        const yTarget = locations[targetIndex];
-        const localDeltaY = yTarget - y0;
-        
-        const tilt = Math.PI * 0.42;
-        const dy = localDeltaY * Math.cos(tilt);
-        const dz = localDeltaY * Math.sin(tilt);
-        
-        const targetPos = window.cameraBasePos.clone().add(new THREE.Vector3(0, dy, dz));
-        const targetLook = window.cameraBaseLookAt.clone().add(new THREE.Vector3(0, dy, dz));
-        
-        // Lerp for smoothness
-        camera.position.lerp(targetPos, 0.1);
-        controls.target.lerp(targetLook, 0.1);
-    }
+
 
     controls.update();
 
@@ -107,32 +82,7 @@ function animate() {
 }
 
 // Event Listeners for Discrete Navigation
-window.addEventListener('keydown', (e) => {
-    if (e.repeat) return; // Ignore hold-down repeat
-    if (!window.shelfLocations.length) return;
-    
-    const count = window.shelfLocations.length;
-    
-    if (e.code === 'ArrowUp') {
-        // "One Up" -> Next Shelf
-        if (window.targetShelfIndex < count - 1) {
-            window.targetShelfIndex++;
-        }
-    }
-    if (e.code === 'ArrowDown') {
-        // "One Down" -> Previous Shelf
-        if (window.targetShelfIndex > 0) {
-            window.targetShelfIndex--;
-        }
-    }
-    // Left/Right - Re-add simple rotation if desired?
-    // User only said "one up/down hides...".
-    // "we will only use keyboard controls (up/down/left/right)" from Step 185.
-    // Let's re-implement basic discrete rotation for Left/Right? 
-    // Or continuous? OrbitControls rotate is smoother.
-    // But animate loop removed "keys" logic. 
-    // Let's just handle Up/Down for now as that's the complaint.
-});
+
 animate();
 
 console.log('Three.js initialized');
@@ -155,26 +105,14 @@ fetch(CSV_PATH)
 function processBooks(data) {
     const allBooksMeshes = [];
 
-    // 1. Top Level Grouping
-    const categories = {
-        'currently-reading': [],
-        'to-read': [],
-        'read': []
-    };
-
-    data.forEach(book => {
-        const status = book['Exclusive Shelf'];
-        if (categories[status]) {
-            categories[status].push(book);
-        } else if (status) {
-            categories['read'].push(book);
-        }
-    });
-
     // Find Most Recenty Read Book
     let mostRecentBook = null;
-    if (categories['read'].length > 0) {
-        mostRecentBook = categories['read'].reduce((latest, book) => {
+    
+    // Filter for 'read' books manually
+    const readBooks = data.filter(book => book['Exclusive Shelf'] === 'read' || !!book['Date Read']);
+
+    if (readBooks.length > 0) {
+        mostRecentBook = readBooks.reduce((latest, book) => {
              if (!latest) return book;
              const d1 = book['Date Read'] || '0000/00/00';
              const d2 = latest['Date Read'] || '0000/00/00';
@@ -263,5 +201,5 @@ function toRadians(angle) {
     return angle * (Math.PI / 180);
 }
 
-function setupInteraction() {} 
+ 
 

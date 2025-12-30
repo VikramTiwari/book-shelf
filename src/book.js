@@ -1,27 +1,38 @@
 import * as THREE from 'three';
 import { createSpineTexture, createBackTexture, createCoverTexture } from './textures.js';
+import { MATERIAL_STYLES, BOOK_PALETTE } from './materialData.js';
 
 export function createBook(bookData) {
     const { Title, Author, "Number of Pages": pages, "My Rating": rating } = bookData;
 
-    // Dimensions (Increased by 1.5x)
-    const baseHeight = 0.35 * 1.5; // ~0.525
-    const baseWidth = 0.25 * 1.5;  // ~0.375
-    const totalThickness = 0.06 * 1.5; // ~0.09
+    // Dimensions (Increased by 2.25x)
+    const baseHeight = 0.35 * 2.25; // ~0.78
+    const baseWidth = 0.25 * 2.25;  // ~0.56
+    const totalThickness = 0.06 * 2.25; // ~0.13
     
-    const coverThickness = 0.008; // Thickness of the hardboard cover
-    const pageIndentation = 0.01; // How much pages are indented from cover edges
+    const coverThickness = 0.008 * 1.5; // Scaled thickness
+    const pageIndentation = 0.01 * 1.5; // Scaled indent
     
     // Geometry Helper
     // We will build a Group
     const bookGroup = new THREE.Group();
 
-    // Random Color base
-    const hue = Math.random();
-    const saturation = 0.4 + Math.random() * 0.4;
-    const lightness = 0.3 + Math.random() * 0.4;
-    const color = new THREE.Color().setHSL(hue, saturation, lightness);
-    const coverMaterialBase = new THREE.MeshStandardMaterial({ color: color, roughness: 0.7 });
+
+    
+    // Pick random style
+    const styleIdx = Math.floor(Math.random() * MATERIAL_STYLES.length);
+    const selectedStyle = MATERIAL_STYLES[styleIdx];
+
+    // Pick random color from palette
+    const colorHex = BOOK_PALETTE[Math.floor(Math.random() * BOOK_PALETTE.length)];
+    const color = new THREE.Color(colorHex);
+    
+    // Base Material
+    const coverMaterialBase = new THREE.MeshStandardMaterial({ 
+        color: color, 
+        roughness: selectedStyle.roughness, 
+        metalness: selectedStyle.metalness 
+    });
 
     // Textures
     // 1. Front Cover Texture
@@ -33,17 +44,29 @@ export function createBook(bookData) {
         frontCoverMat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.5 });
     } else {
         // Fallback: Generate Procedural Cover
-        const coverTex = createCoverTexture(bookData, color.getStyle());
-        frontCoverMat = new THREE.MeshStandardMaterial({ map: coverTex, roughness: 0.5 });
+        const coverTex = createCoverTexture(bookData, color.getStyle(), selectedStyle.name);
+        frontCoverMat = new THREE.MeshStandardMaterial({ 
+            map: coverTex, 
+            roughness: selectedStyle.roughness,
+            metalness: selectedStyle.metalness
+        });
     }
 
     // 2. Spine Texture
-    const spineTexture = createSpineTexture(Title, color.getStyle(), rating);
-    const spineMat = new THREE.MeshStandardMaterial({ map: spineTexture, roughness: 0.5 });
+    const spineTexture = createSpineTexture(Title, color.getStyle(), rating, selectedStyle.name);
+    const spineMat = new THREE.MeshStandardMaterial({ 
+        map: spineTexture, 
+        roughness: selectedStyle.roughness,
+        metalness: selectedStyle.metalness
+    });
 
     // 3. Back Texture
-    const backTexture = createBackTexture(bookData, color.getStyle());
-    const backCoverMat = new THREE.MeshStandardMaterial({ map: backTexture, roughness: 0.5 });
+    const backTexture = createBackTexture(bookData, color.getStyle(), selectedStyle.name);
+    const backCoverMat = new THREE.MeshStandardMaterial({ 
+        map: backTexture, 
+        roughness: selectedStyle.roughness,
+        metalness: selectedStyle.metalness
+    });
 
     // 4. Pages Material
     const pagesMat = new THREE.MeshStandardMaterial({ color: 0xfdfdfd, roughness: 0.9 }); 
