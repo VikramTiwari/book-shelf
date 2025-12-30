@@ -7,7 +7,6 @@
 		"build": "vite build",
 		"preview": "vite preview",
 		"test": "echo \"Error: no test specified\" && exit 1",
-
 		"enrich": "node scripts/enrich-data.js"
 	},
 	"keywords": [],
