@@ -2,9 +2,8 @@ import * as THREE from 'three';
 import { CONFIG } from './config.js';
 import { scene } from './LibraryApp.js';
 import { updateFocus, nudgeCamera } from './interaction.js';
-import { createSpineTexture, getBookColor } from './spine.js';
-import { createWoodTexture } from './utils.js';
-import { buildShelfStructure, createShelfLabel } from './shelf.js';
+import { createBook } from '../common/Book3D.js';
+import { createShelfLabel, buildShelfStructure } from './shelf.js';
 
 export let shelfGroup;
 export let bookMeshes = [];
@@ -113,136 +112,85 @@ export function buildFullBookshelf(books) {
 
     rows.forEach((rowBytes, rowIndex) => {
         let rowWidthTotal = 0;
-        const rowBookProps = [];
         navigationGrid[rowIndex] = [];
         
         let rowBooks = rowBytes;
-        // Skip processing books if it's a banner object
         if (!Array.isArray(rowBytes)) {
-            // It's a banner, no books to render in this row loop
-            // navigationGrid needs an entry though? Empty array is fine.
             return;
         }
 
+        // 1. Pre-calculate scaled dimensions and Create Books
+        const rowBookProps = [];
+        
         rowBooks.forEach(book => {
-            let width = book.pages * CONFIG.pageThicknessMultiplier;
-            width = Math.max(CONFIG.minBookWidth, Math.min(width, CONFIG.maxBookWidth));
-            rowBookProps.push({ width, data: book });
-            rowWidthTotal += width;
+            // Create Book using Shared Component
+            const { mesh, thickness: rawThickness, height: rawHeight } = createBook(book);
+
+            // Determine Scale
+            // Target height is CONFIG.bookHeight (approx 3.5)
+            // Raw height is ~0.8.
+            // Introduce some random size variation (0.95 - 1.05)
+            const scaleFactor = (CONFIG.bookHeight / rawHeight) * (0.95 + Math.random() * 0.1);
+            
+            // Apply scale immediately
+            mesh.scale.set(scaleFactor, scaleFactor, scaleFactor);
+
+            // Rotate appropriately for Library View
+            mesh.rotation.y = Math.PI / 2;
+
+            const scaledThickness = rawThickness * scaleFactor;
+            
+            rowBookProps.push({ 
+                mesh, 
+                data: book, 
+                scaledThickness, 
+                rawHeight, 
+                scaleFactor 
+            });
+            
+            rowWidthTotal += scaledThickness;
         });
 
         rowWidthTotal += (rowBooks.length - 1) * CONFIG.gap;
         let currentX = -rowWidthTotal / 2;
 
         rowBookProps.forEach((prop, i) => {
-            const book = prop.data;
-            const width = prop.width;
+            const { mesh, data: book, scaledThickness, rawHeight, scaleFactor } = prop;
 
             if (startFocusPosition === null && book.shelf === 'currently-reading') {
                 startFocusPosition = { row: rowIndex, col: i };
             }
 
-            const height = CONFIG.bookHeight * (0.95 + Math.random() * 0.1);
-            const depth = CONFIG.bookDepth;
-            const coverThickness = 0.05;
-            const paperMargin = 0.1;
-
-            const group = new THREE.Group();
-
-            const currentYear = new Date().getFullYear();
-            const year = parseInt(book.year) || currentYear;
-            const age = Math.max(0, currentYear - year);
-            const ageFactor = Math.min(age, 100) / 100;
-
-            let baseColor = getBookColor(book);
-            const hsl = {};
-            baseColor.getHSL(hsl);
-
-            hsl.s *= (1 - ageFactor * 0.5); 
-            hsl.l *= (1 - ageFactor * 0.3); 
-            const spineColor = new THREE.Color().setHSL(hsl.h, hsl.s, hsl.l);
-
-            const newPaper = new THREE.Color(0xfffff0);
-            const oldPaper = new THREE.Color(0xd2b48c);
-            const paperColor = newPaper.lerp(oldPaper, ageFactor * 0.7);
-
-            const bookRoughness = 0.4 + (ageFactor * 0.5);
-
-            const spineTexture = createSpineTexture(width, height, spineColor, book);
-            const spineMatWithText = new THREE.MeshStandardMaterial({
-                map: spineTexture,
-                roughness: bookRoughness,
-                metalness: 0.0,
-                color: 0xffffff
-            });
-
-            const coverMat = new THREE.MeshStandardMaterial({ color: spineColor, roughness: bookRoughness });
-            const paperMat = new THREE.MeshStandardMaterial({ color: paperColor, roughness: 0.9 });
-
-            const spineGeo = new THREE.BoxGeometry(width, height, coverThickness);
-            const spineMesh = new THREE.Mesh(spineGeo, spineMatWithText);
-            spineMesh.position.z = depth / 2 - coverThickness / 2;
-            spineMesh.name = 'Spine';
-            spineMesh.castShadow = true;
-            spineMesh.receiveShadow = true;
-            group.add(spineMesh);
-
-            const coverGeo = new THREE.BoxGeometry(coverThickness, height, depth - coverThickness);
-            const coverRightMesh = new THREE.Mesh(coverGeo, coverMat);
-            coverRightMesh.position.x = width / 2 - coverThickness / 2;
-            coverRightMesh.position.z = -coverThickness / 2;
-            coverRightMesh.name = 'CoverRight';
-            coverRightMesh.castShadow = true;
-            coverRightMesh.receiveShadow = true;
-            group.add(coverRightMesh);
-
-            const coverLeftMesh = new THREE.Mesh(coverGeo, coverMat);
-            coverLeftMesh.position.x = -(width / 2 - coverThickness / 2);
-            coverLeftMesh.position.z = -coverThickness / 2;
-            coverLeftMesh.name = 'CoverLeft';
-            coverLeftMesh.castShadow = true;
-            coverLeftMesh.receiveShadow = true;
-            group.add(coverLeftMesh);
-
-            const paperWidth = width - (coverThickness * 2);
-            const paperHeight = height - (paperMargin * 2);
-            const paperDepth = depth - coverThickness;
-
-            const paperGeo = new THREE.BoxGeometry(paperWidth, paperHeight, paperDepth);
-            const paperMesh = new THREE.Mesh(paperGeo, paperMat);
-            paperMesh.position.z = -coverThickness / 2;
-            paperMesh.name = 'Paper';
-            paperMesh.receiveShadow = true;
-            group.add(paperMesh);
-
-            const centerX = currentX + width / 2;
+            const centerX = currentX + scaledThickness / 2;
             const shelfIndexFromTop = rowIndex;
             const shelfIndexFromBottom = (rowsNeeded - 1) - shelfIndexFromTop;
             const sY = 1 + shelfIndexFromBottom * CONFIG.levelHeight;
-            const yPos = sY + (CONFIG.shelfThickness / 2) + (height / 2);
+            const yPos = sY + (CONFIG.shelfThickness / 2) + (rawHeight * scaleFactor) / 2; 
 
-            group.position.set(centerX, yPos, 0);
-            group.rotation.y = 0;
+            mesh.position.set(centerX, yPos, 0);
 
-            group.userData = {
+            // Enhance userData
+            mesh.userData = {
+                ...mesh.userData, // Keep existing (book data, loadTexture)
                 id: bookGlobalIndex,
-                originalRot: group.rotation.clone(),
-                originalPos: group.position.clone(),
-                gridPos: { row: rowIndex, col: i }
+                originalRot: mesh.rotation.clone(),
+                originalPos: mesh.position.clone(),
+                originalScale: mesh.scale.clone(),
+                gridPos: { row: rowIndex, col: i },
+                scaledThickness: scaledThickness 
             };
 
-            shelfGroup.add(group);
-            bookMeshes.push(group);
-            navigationGrid[rowIndex].push(group);
+            shelfGroup.add(mesh);
+            bookMeshes.push(mesh);
+            navigationGrid[rowIndex].push(mesh);
 
-            currentX += width + CONFIG.gap;
+            currentX += scaledThickness + CONFIG.gap;
             bookGlobalIndex++;
         });
     });
 
     if (startFocusPosition) {
         updateFocus(startFocusPosition.row, startFocusPosition.col, true);
-        // Nudge camera up to show banner
         nudgeCamera(CONFIG.levelHeight * 0.45); 
     } else if (navigationGrid.length > 0 && navigationGrid[0].length > 0) {
         updateFocus(0, 0, true);

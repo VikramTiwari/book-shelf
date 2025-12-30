@@ -1,14 +1,29 @@
 import * as THREE from 'three';
 import { drawBackgroundPattern } from './patterns.js';
 
-export function createCoverTexture(bookData, color, style = "Leather", age = 0) {
+import { createSpineTexture as createSharedSpineTexture, drawLinearRating } from './spine.js';
+
+// We export this so Book3D can call it directly if needed, or we wrapper it.
+// Actually Book3D calls createSpineTexture.
+// The library version of createSpineTexture expects (width, height, colorObj, book).
+// We can re-export it or letting Book3D import it directly.
+// Let's re-export for convenience or just import in Book3D.
+// Using direct import in Book3D is cleaner.
+// But wait, the carousel implementation used a `createSpineTexture` in this file.
+// We are REPLACING that with the one from ./spine.js
+// So we don't need to define/export it here.
+
+export function createCoverTexture(book, color, style = "Leather", age = 0) {
     const canvas = document.createElement('canvas');
     canvas.width = 512;
     canvas.height = 800; // Aspect ratio roughly matches book
     const ctx = canvas.getContext('2d');
 
     // Draw Background Pattern
-    drawBackgroundPattern(ctx, canvas.width, canvas.height, style, color);
+    // Ensure color is a string for canvas style
+    const colorStr = (typeof color === 'string') ? color : '#' + color.getHexString();
+    
+    drawBackgroundPattern(ctx, canvas.width, canvas.height, style, colorStr);
 
     // Border
     ctx.strokeStyle = '#ebd5b3'; // Gold-ish border
@@ -16,14 +31,16 @@ export function createCoverTexture(bookData, color, style = "Leather", age = 0) 
     ctx.strokeRect(20, 20, canvas.width - 40, canvas.height - 40);
 
     const padding = 40;
+    
+    // Removed Rating Star from front cover per user request
+
     let y = 150;
 
     // Title & Subtitle Processing
-    const { mainTitle } = parseTitle(bookData.Title);
+    const { mainTitle } = parseTitle(book.title);
 
     // Font Selection (Randomized by Title)
-    // const genreStr = bookData['Genres'] || "";
-    const fontName = getFontForTitle(bookData.Title);
+    const fontName = getFontForTitle(book.title);
 
     // Draw Main Title
     ctx.textAlign = 'center';
@@ -40,14 +57,6 @@ export function createCoverTexture(bookData, color, style = "Leather", age = 0) 
     ctx.font = `bold ${fontSize}px "${fontName}"`;
     
     titleLines.forEach((line) => {
-        // Shadow (Dark, Top-Left or Bottom-Right depending on style)
-        // "Debossed" into leather usually means:
-        // Highlight at Bottom-Right (Surface catches light)
-        // Shadow at Top-Left (Recessed edge casting shadow)
-        // Or vice versa depending on light source.
-        // Let's assume standard top-left light source.
-        // Deboss: Inner Top-Left is Shadow. Inner Bottom-Right is Highlight.
-
         // 1. Highlight (Bottom-Right)
         ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
         ctx.fillText(line, (canvas.width / 2) + 2, y + 2);
@@ -58,8 +67,6 @@ export function createCoverTexture(bookData, color, style = "Leather", age = 0) 
 
         // 3. Main Text (Gold/Silver/Color)
         ctx.fillStyle = '#e6c88c'; // Faded Gold default
-        // If color is very light, maybe use dark text?
-        // But leather binding usually uses gold leaf.
         ctx.fillText(line, canvas.width / 2, y);
 
         // Optional: Stroke for definition
@@ -76,8 +83,10 @@ export function createCoverTexture(bookData, color, style = "Leather", age = 0) 
     ctx.fillStyle = '#eee';
     ctx.lineWidth = 3; 
     const authorY = canvas.height - 150;
-    ctx.strokeText("by " + bookData.Author, canvas.width / 2, authorY);
-    ctx.fillText("by " + bookData.Author, canvas.width / 2, authorY);
+    if (book.author) {
+        ctx.strokeText("by " + book.author, canvas.width / 2, authorY);
+        ctx.fillText("by " + book.author, canvas.width / 2, authorY);
+    }
 
     // Apply Aging Effects
     if (age > 0) {
@@ -91,7 +100,7 @@ export function createCoverTexture(bookData, color, style = "Leather", age = 0) 
 
 export function createPagesTexture(baseColorHex, age = 0) {
     const canvas = document.createElement('canvas');
-    canvas.width = 512; // Increased from 64 for resolution along thickness
+    canvas.width = 512; 
     canvas.height = 512; 
     const ctx = canvas.getContext('2d');
 
@@ -102,14 +111,13 @@ export function createPagesTexture(baseColorHex, age = 0) {
     ctx.fillStyle = baseColorHex;
     ctx.fillRect(0, 0, width, height);
 
-    // Draw "Lines" - Stack of paper (Vertical Lines for standing book)
-    // Hundreds of thin vertical lines
-    // We iterate X now.
+    // Draw "Lines" - Stack of paper 
     
     // 1. Base Grain (Stronger)
     for (let x = 0; x < width; x += 1) {
          const noise = (Math.random() - 0.5) * 0.1;
          ctx.fillStyle = `rgba(0,0,0,${0.05 + noise})`; 
+         ctx.fillRect(x, 0, 1, height);
     }
 
     // 2. Page Lines (High Contrast)
@@ -119,21 +127,18 @@ export function createPagesTexture(baseColorHex, age = 0) {
     }
     
     // 3. Signatures (Groups of pages bound together)
-    // Every ~15-20px, draw a stronger shadow line
     for (let x = 0; x < width; x += (15 + Math.random() * 10)) {
         ctx.fillStyle = `rgba(50, 30, 10, 0.3)`; // Dark groove
         ctx.fillRect(x, 0, 2, height);
     }
     
-    // Vertical Grain / Noise (now horizontal? or just scattered specs)
+    // Vertical Grain / Noise
     ctx.fillStyle = 'rgba(0,0,0,0.03)';
     for (let i=0; i<1000; i++) {
         ctx.fillRect(Math.random()*width, Math.random()*height, 2, 1);
     }
 
-    // Gradient Shadows on sides (Front/Back edge vs Spine edge)
-    // For vertical pages, the "sides" of the texture (Left/Right) correspond
-    // to the connection with the Front/Back covers.
+    // Gradient Shadows on sides
     const grad = ctx.createLinearGradient(0, 0, width, 0);
     grad.addColorStop(0, 'rgba(50,40,30,0.3)');   // Darker near one cover
     grad.addColorStop(0.1, 'rgba(50,40,30,0.05)');
@@ -149,116 +154,37 @@ export function createPagesTexture(baseColorHex, age = 0) {
     return tex;
 }
 
-export function createSpineTexture(title, color, rating, style = "Leather", age = 0, pages = 300) {
-    const canvas = document.createElement('canvas');
-    canvas.width = 64; 
-    canvas.height = 512;
-    const ctx = canvas.getContext('2d');
 
-    // Background
-    drawBackgroundPattern(ctx, canvas.width, canvas.height, style, color);
-
-    // Text Config
-    ctx.fillStyle = 'white'; 
-    ctx.font = 'bold 36px Arial'; // Slightly smaller to fit
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-
-    ctx.save();
-    ctx.translate(canvas.width / 2, canvas.height / 2);
-    ctx.rotate(-Math.PI / 2); // Bottom to Top
-
-    // Rating Stars
-    const starCount = Math.round(Number(rating) || 0);
-    const stars = '★'.repeat(starCount); 
-    
-    // Draw Title
-    const maxLen = 20;
-    const { mainTitle } = parseTitle(title);
-    let safeTitle = mainTitle || "Untitled";
-    if (safeTitle.length > maxLen) {
-        safeTitle = safeTitle.substring(0, maxLen) + '...';
-    }
-    
-    // Layout: Title ... gap ... Stars
-    // Since we rotated, X is along the long axis of the spine now (vertical visually)
-    // We are at (0,0) center of rotated context.
-    
-    ctx.fillText(safeTitle, 0, -50); // Shift title "up" (left visually if unrotated)
-    
-    if (starCount > 0) {
-        ctx.fillStyle = '#FFD700'; // Gold
-        ctx.font = '24px Arial';
-        ctx.fillText(stars, 0, 150); // Shift "down" (right visually)
-    } else {
-        // No rating: Draw Decorative Pattern
-        ctx.strokeStyle = '#FFD700';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        
-        // Random simple pattern choice
-        const patternType = Math.floor(Math.random() * 3);
-        const yBase = 150;
-        
-        if (patternType === 0) {
-            // Double Lines
-            ctx.moveTo(-20, yBase); ctx.lineTo(20, yBase);
-            ctx.moveTo(-20, yBase + 10); ctx.lineTo(20, yBase + 10);
-        } else if (patternType === 1) {
-            // Diamond
-            ctx.moveTo(0, yBase);
-            ctx.lineTo(10, yBase + 15);
-            ctx.lineTo(0, yBase + 30);
-            ctx.lineTo(-10, yBase + 15);
-            ctx.lineTo(0, yBase);
-        } else {
-            // Cross / Star shape
-            ctx.moveTo(0, yBase); ctx.lineTo(0, yBase + 30);
-            ctx.moveTo(-10, yBase + 15); ctx.lineTo(10, yBase + 15);
-        }
-        ctx.stroke();
-    }
-    
-    
-    // Page Count removed from here (Moved to Back)
-
-    ctx.restore();
-
-    // Apply Aging Effects to Spine
-    if (age > 0) {
-        drawWearAndTear(ctx, canvas.width, canvas.height, age, true);
-    }
-
-    return new THREE.CanvasTexture(canvas);
-}
-
-export function createBackTexture(bookData, color, style = "Leather", age = 0, pages = 300) {
+export function createBackTexture(book, color, style = "Leather", age = 0, pages = 300, pageColor = '#F7F5E6') {
     const canvas = document.createElement('canvas');
     canvas.width = 512;
     canvas.height = 800; 
     const ctx = canvas.getContext('2d');
 
+    const colorStr = (typeof color === 'string') ? color : '#' + color.getHexString();
+    const pageColorStr = (typeof pageColor === 'string') ? pageColor : '#' + pageColor.getHexString();
+    
     // Background
-    drawBackgroundPattern(ctx, canvas.width, canvas.height, style, color);
+    drawBackgroundPattern(ctx, canvas.width, canvas.height, style, colorStr);
     
     // Darken overlay
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)'; // Slightly lighter overlay for texture visibility 
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)'; 
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Border (Same as Front)
-    ctx.strokeStyle = '#ebd5b3'; // Gold-ish border
+    // Border
+    ctx.strokeStyle = '#ebd5b3'; 
     ctx.lineWidth = 10;
     ctx.strokeRect(20, 20, canvas.width - 40, canvas.height - 40);
 
     const padding = 40;
-    const maxWidth = canvas.width - (padding * 2); // Define maxWidth here
+    const maxWidth = canvas.width - (padding * 2); 
     let y = 80;
 
-    // Pick Font based on Title (Consistent Random)
-    const fontName = getFontForTitle(bookData.Title);
+    // Pick Font based on Title
+    const fontName = getFontForTitle(book.title);
 
     // Title & Subtitle Split
-    const { mainTitle, subTitle } = parseTitle(bookData.Title);
+    const { mainTitle, subTitle } = parseTitle(book.title);
 
     // Main Title
     ctx.fillStyle = 'white';
@@ -281,7 +207,9 @@ export function createBackTexture(bookData, color, style = "Leather", age = 0, p
     // Author
     ctx.font = 'italic 30px Arial'; 
     ctx.fillStyle = '#ddd';
-    ctx.fillText("by " + bookData.Author, canvas.width / 2, y);
+    if (book.author) {
+        ctx.fillText("by " + book.author, canvas.width / 2, y);
+    }
     y += 60;
 
     // Separator Line
@@ -295,8 +223,8 @@ export function createBackTexture(bookData, color, style = "Leather", age = 0, p
 
     // Metadata Block
     
-    // Publication Year (Subtle)
-    const pubYear = bookData['Original Publication Year'] || bookData['Year Published'];
+    // Publication Year
+    const pubYear = book.year;
     if (pubYear) {
         ctx.font = '22px Arial';
         ctx.fillStyle = '#aaa';
@@ -304,12 +232,26 @@ export function createBackTexture(bookData, color, style = "Leather", age = 0, p
         y += 60;
     }
 
-    // Date Read moved to bottom
-    
-    // Genre (Secondary)
-    if (bookData['Genres']) {
-        // Replace semicolons with commas
-        const allGenres = bookData['Genres'].replace(/;/g, ', ');
+    // Draw Rating Star & Text (Traditional Linear)
+    const bRating = book.average_rating || 0;
+    if (bRating > 0) {
+        // Draw linear rating
+        // Width for 5 stars: maybe 200px?
+        drawLinearRating(ctx, canvas.width / 2, y + 20, 200, bRating, pageColorStr);
+        
+        y += 70; // Increased space for stars (was 50)
+
+        ctx.font = 'bold 18px Arial';
+        ctx.fillStyle = pageColorStr; // Match text color to stars/pages
+        ctx.textAlign = 'center';
+        ctx.fillText(`${bRating}/5`, canvas.width / 2, y);
+        
+        y += 40; // Space after text
+    }
+
+    // Genre
+    if (book.genre) {
+        const allGenres = book.genre.replace(/;/g, ', ');
         
         ctx.font = 'italic 20px Arial';
         ctx.fillStyle = '#ccc';
@@ -319,13 +261,13 @@ export function createBackTexture(bookData, color, style = "Leather", age = 0, p
         y += 50; 
     }
     
-    // Page Count (Back Cover - Lower)
+    // Page Count
     ctx.fillStyle = '#bbb';
     ctx.font = 'bold 24px Courier New'; 
     ctx.fillText((parseInt(pages) || "?") + " Pages", canvas.width / 2, canvas.height - 110);
 
     // Separator for "My Data"
-    if (bookData['Date Read']) {
+    if (book.date_read) {
         ctx.strokeStyle = 'rgba(255,255,255,0.2)';
         ctx.lineWidth = 1;
         ctx.beginPath();
@@ -335,7 +277,7 @@ export function createBackTexture(bookData, color, style = "Leather", age = 0, p
 
         ctx.fillStyle = '#fff'; 
         ctx.font = 'italic 20px Arial'; 
-        const dateStr = formatDate(bookData['Date Read']);
+        const dateStr = formatDate(book.date_read);
         ctx.fillText(`Finished: ${dateStr}`, canvas.width / 2, canvas.height - 50);
     }
 
@@ -353,24 +295,18 @@ function drawWearAndTear(ctx, width, height, age, isSpine = false) {
     if (age <= 0) return;
 
     // Intensity factors based on age (0 to 100+)
-    // Normalize age roughly 0-100
     const intensity = Math.min(1.0, age / 80); 
 
     ctx.save();
     
-    // 1. Edge Darkening / Grime (Worn Edges)
-    // Create a radial gradient or just borders?
-    // Rectangular fade from edge
+    // 1. Edge Darkening / Grime
     const edgeSize = isSpine ? 10 : 40;
     const darkness = intensity * 0.7; // Max opacity 0.7
 
     if (darkness > 0.05) {
-        // Outer glow style gradient
-        // We draw a stroke with gradient or just multiple rects?
-        // Gradient is better.
         const grad = ctx.createRadialGradient(width/2, height/2, height/3, width/2, height/2, height/1.5);
         grad.addColorStop(0, 'rgba(0,0,0,0)');
-        grad.addColorStop(1, `rgba(60,40,20,${darkness})`); // Brownish/Black
+        grad.addColorStop(1, `rgba(60,40,20,${darkness})`); 
 
         ctx.fillStyle = grad;
         ctx.fillRect(0, 0, width, height);
@@ -382,11 +318,10 @@ function drawWearAndTear(ctx, width, height, age, isSpine = false) {
     }
 
     // 2. Scratches
-    // Random lines
     const scratchCount = Math.floor(intensity * (isSpine ? 10 : 50));
     
-    ctx.globalCompositeOperation = 'overlay'; // Blend with underlying color
-    ctx.strokeStyle = `rgba(255,255,255,${0.1 + intensity * 0.2})`; // Light scratches
+    ctx.globalCompositeOperation = 'overlay'; 
+    ctx.strokeStyle = `rgba(255,255,255,${0.1 + intensity * 0.2})`; 
     ctx.lineWidth = 1;
 
     for (let i = 0; i < scratchCount; i++) {
@@ -397,7 +332,6 @@ function drawWearAndTear(ctx, width, height, age, isSpine = false) {
         const angle = Math.random() * Math.PI * 2;
         
         ctx.moveTo(x, y);
-        // Beizer curve for natural scratch? or simple line
         ctx.lineTo(x + Math.cos(angle) * len, y + Math.sin(angle) * len);
         ctx.stroke();
     }
@@ -412,16 +346,10 @@ function drawWearAndTear(ctx, width, height, age, isSpine = false) {
         const x = Math.random() * width;
         const y = Math.random() * height;
         const len = 20 + Math.random() * 80;
-        const angle = (Math.random() - 0.5) * Math.PI; // Mostly vertical-ish
-        
-        // Curve
-        const cp1x = x + Math.random() * 20 - 10;
-        const cp1y = y + len / 2;
         const endx = x + Math.random() * 20 - 10;
         const endy = y + len;
-
         ctx.moveTo(x, y);
-        ctx.quadraticCurveTo(cp1x, cp1y, endx, endy);
+        ctx.quadraticCurveTo(x + Math.random() * 20 - 10, y + len / 2, endx, endy);
         ctx.stroke();
     }
 
@@ -437,21 +365,12 @@ function drawWearAndTear(ctx, width, height, age, isSpine = false) {
         }
     }
 
-    // 4. Cuffed Edges (Peeling/Scuffing)
-    // Simulates paper/leather peeling off to reveal board underneath at corners/edges.
-    // Only for older books (intensity > 0.3)
-    // 4. Cuffed Edges (Peeling/Scuffing)
-    // Simulates paper/leather peeling off to reveal board underneath at corners/edges.
-    // Enhanced for "Really Bad" shape on old books.
+    // 4. Cuffed Edges
     if (intensity > 0.25) {
-        // Dramatic increase in probability
         const cuffChance = (intensity - 0.2) * 4.0;
-        
-        // Dirty exposed cardboard color
         const cuffColor = 'rgba(210, 200, 185, 0.9)'; 
         ctx.fillStyle = cuffColor;
         
-        // Helper to draw rough blob with texture
         const drawCuff = (cx, cy, radiusX, radiusY) => {
              ctx.save();
              ctx.beginPath();
@@ -464,22 +383,19 @@ function drawWearAndTear(ctx, width, height, age, isSpine = false) {
                  if (i===0) ctx.moveTo(px, py);
                  else ctx.lineTo(px, py);
              }
-             ctx.clip(); // Clip to the blob shape
+             ctx.clip(); 
 
-             // 1. Base Cardboard Color
              ctx.fillStyle = cuffColor;
              ctx.fill();
 
-             // 2. Add Noise/Fraying (Dark Speckles)
              const speckCount = Math.floor(radiusX * radiusY * 0.5); 
-             ctx.fillStyle = 'rgba(100, 80, 60, 0.4)'; // Dark brown/dirt
+             ctx.fillStyle = 'rgba(100, 80, 60, 0.4)'; 
              for(let n=0; n<speckCount; n++) {
-                 const nx = cx + (Math.random() - 0.5) * 2.0 * radiusX; // range approx
+                 const nx = cx + (Math.random() - 0.5) * 2.0 * radiusX;
                  const ny = cy + (Math.random() - 0.5) * 2.0 * radiusY;
                  ctx.fillRect(nx, ny, 2, 2);
              }
 
-             // 3. Frayed Paper Fibers (Light Lines)
              ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
              ctx.lineWidth = 1;
              const fiberCount = 5;
@@ -491,47 +407,28 @@ function drawWearAndTear(ctx, width, height, age, isSpine = false) {
                  ctx.lineTo(fx + (Math.random()-0.5)*10, fy + (Math.random()-0.5)*10);
                  ctx.stroke();
              }
-
              ctx.restore();
         };
 
-        // Corners (Heaviest wear)
-        // Significantly larger corners for old books
         const cornerSize = 25 + (intensity * 60); 
         
-        // Top-Left
         if (Math.random() < cuffChance) drawCuff(0, 0, cornerSize, cornerSize);
-        // Top-Right
         if (Math.random() < cuffChance) drawCuff(width, 0, cornerSize, cornerSize);
-        // Bottom-Right
         if (Math.random() < cuffChance) drawCuff(width, height, cornerSize, cornerSize);
-        // Bottom-Left
         if (Math.random() < cuffChance) drawCuff(0, height, cornerSize, cornerSize);
 
-        // Edges (Random spots)
-        // Much higher frequency of edge damage
         const edgeCount = Math.floor(intensity * 30); 
         for(let k=0; k<edgeCount; k++) {
-            // Random edge
             const side = Math.floor(Math.random() * 4); 
-            // Larger patches
             const blobSize = 10 + Math.random() * 20;
-            
             let ex, ey;
-            if (side === 0) { // Top
-                ex = Math.random() * width; ey = 0;
-            } else if (side === 1) { // Right
-                ex = width; ey = Math.random() * height;
-            } else if (side === 2) { // Bottom
-                ex = Math.random() * width; ey = height;
-            } else { // Left
-                ex = 0; ey = Math.random() * height;
-            }
-            
+            if (side === 0) { ex = Math.random() * width; ey = 0; }
+            else if (side === 1) { ex = width; ey = Math.random() * height; }
+            else if (side === 2) { ex = Math.random() * width; ey = height; }
+            else { ex = 0; ey = Math.random() * height; }
             drawCuff(ex, ey, blobSize, blobSize);
         }
     }
-
     ctx.restore();
 }
 
@@ -547,33 +444,19 @@ function parseTitle(fullTitle) {
     let splitIdx = -1;
     let isParen = false;
 
-    // Determine First Separator
     if (idxColon > -1 && idxParen > -1) {
-        if (idxColon < idxParen) {
-            splitIdx = idxColon;
-        } else {
-            splitIdx = idxParen;
-            isParen = true;
-        }
-    } else if (idxColon > -1) {
-        splitIdx = idxColon;
-    } else if (idxParen > -1) {
-        splitIdx = idxParen;
-        isParen = true;
-    }
+        if (idxColon < idxParen) { splitIdx = idxColon; }
+        else { splitIdx = idxParen; isParen = true; }
+    } else if (idxColon > -1) { splitIdx = idxColon; }
+    else if (idxParen > -1) { splitIdx = idxParen; isParen = true; }
 
     if (splitIdx > -1) {
         mainTitle = fullTitle.substring(0, splitIdx).trim();
         subTitle = fullTitle.substring(splitIdx + 1).trim();
-        
-        // Clean Subtitle
-         if (isParen) {
-            if (subTitle.endsWith(')')) {
-                subTitle = subTitle.slice(0, -1).trim();
-            }
+        if (isParen) {
+            if (subTitle.endsWith(')')) subTitle = subTitle.slice(0, -1).trim();
         }
     }
-    
     return { mainTitle, subTitle };
 }
 
@@ -582,19 +465,15 @@ function getFontForTitle(title) {
         'Comic Neue', 'Share Tech Mono', 'Orbitron', 'Audiowide', 
         'Jolly Lodger', 'Cinzel Decorative', 'Oswald', 'Henny Penny', 
         'MedievalSharp', 'Special Elite', 'Lora',
-        // New Fonts
         'Playfair Display', 'Roboto Slab', 'Merriweather', 'Lobster', 
         'Pacifico', 'Bangers', 'Monoton', 'Creepster', 'Rye', 'Amatic SC'
     ];
-    
     if (!title) return fonts[0];
     
-    // Simple Hash
     let hash = 0;
     for (let i = 0; i < title.length; i++) {
         hash = title.charCodeAt(i) + ((hash << 5) - hash);
     }
-    
     const index = Math.abs(hash) % fonts.length;
     return fonts[index];
 }
@@ -603,14 +482,11 @@ function formatDate(dateString) {
     if (!dateString) return '';
     try {
         const date = new Date(dateString);
-        if (isNaN(date.getTime())) return dateString; // fallback
+        if (isNaN(date.getTime())) return dateString; 
         return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    } catch (e) {
-        return dateString;
-    }
+    } catch (e) { return dateString; }
 }
 
-// Helper to get lines without drawing
 function getWrappedLines(ctx, text, maxWidth, font) {
     ctx.font = font;
     const words = text.split(' ');
@@ -624,8 +500,7 @@ function getWrappedLines(ctx, text, maxWidth, font) {
         if (testWidth > maxWidth && n > 0) {
             lines.push(line);
             line = words[n] + ' ';
-        }
-        else {
+        } else {
             line = testLine;
         }
     }
@@ -649,8 +524,7 @@ function wrapText(ctx, text, x, y, maxWidth, lineHeight, stroke = false) {
             line = words[n] + ' ';
             y += lineHeight;
             lineCount++;
-        }
-        else {
+        } else {
             line = testLine;
         }
     }
@@ -658,5 +532,3 @@ function wrapText(ctx, text, x, y, maxWidth, lineHeight, stroke = false) {
     ctx.fillText(line, x, y);
     return lineCount;
 }
-
-

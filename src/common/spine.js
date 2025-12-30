@@ -42,6 +42,180 @@ export async function preloadGenreFonts() {
     console.log("All fonts loaded.");
 }
 
+export function drawRatingStar(ctx, x, y, size, rating) {
+    // rating is 0-5
+    // "5 star armed forces" -> Pentagon arrangement (General of the Army)
+    // 5 stars arranged in a circle.
+    
+    // Radius of the circle on which stars are placed
+    const groupRadius = size * 0.35; 
+    // Size of each individual star
+    const starRadius = size * 0.12; 
+
+    // Angles for the 5 stars (starting from top, clockwise)
+    // Top is -90 degrees (in canvas 0 is Right, -90 is Up)
+    // 5 points: -90, -18, 54, 126, 198.
+    const angles = [
+        -Math.PI / 2,                         // Top
+        -Math.PI / 2 - (Math.PI * 2 / 5) * 1, // Top Left
+        -Math.PI / 2 - (Math.PI * 2 / 5) * 2, // Bot Left
+        -Math.PI / 2 - (Math.PI * 2 / 5) * 3, // Bot Right
+        -Math.PI / 2 - (Math.PI * 2 / 5) * 4  // Top Right
+    ];
+
+    ctx.save();
+    ctx.translate(x, y);
+
+    // Draw 5 stars
+    angles.forEach((angle, index) => {
+        const sx = Math.cos(angle) * groupRadius;
+        const sy = Math.sin(angle) * groupRadius;
+        
+        // Determine fill for this specific star
+        // Star 1 (index 0) represents rating 0-1
+        // Star 2 (index 1) represents rating 1-2
+        // etc.
+        const starValue = Math.max(0, Math.min(1, rating - index));
+
+        drawSingleSmallStar(ctx, sx, sy, starRadius, starValue);
+    });
+
+    ctx.restore();
+}
+
+function drawSingleSmallStar(ctx, x, y, radius, fillPct) {
+    ctx.save();
+    ctx.translate(x, y);
+
+    ctx.beginPath();
+    const spikes = 5;
+    const outerRadius = radius;
+    const innerRadius = radius / 2; // fatter stars for rank look?
+    let rot = Math.PI / 2 * 3;
+    const step = Math.PI / spikes;
+
+    ctx.moveTo(0, 0 - outerRadius);
+    for (let i = 0; i < spikes; i++) {
+        let x = Math.cos(rot) * outerRadius;
+        let y = Math.sin(rot) * outerRadius;
+        ctx.lineTo(x, y);
+        rot += step;
+
+        x = Math.cos(rot) * innerRadius;
+        y = Math.sin(rot) * innerRadius;
+        ctx.lineTo(x, y);
+        rot += step;
+    }
+    ctx.lineTo(0, 0 - outerRadius);
+    ctx.closePath();
+
+    // Fill Background
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.fill();
+
+    // Fill Foreground
+    if (fillPct > 0) {
+        ctx.save();
+        ctx.clip();
+        
+        ctx.fillStyle = '#FFD700';
+        // Fill from left to right? Or bottom up?
+        // Standard rating stars usually fill Left-Right.
+        const fillW = (radius * 2) * fillPct;
+        ctx.fillRect(-radius, -radius, fillW, radius * 2);
+        
+        ctx.restore();
+    }
+
+    // Stroke
+    ctx.strokeStyle = '#B8860B';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    ctx.restore();
+}
+
+export function drawLinearRating(ctx, x, y, size, rating, color = '#F7F5E6') {
+    // Traditional 5 stars in a row
+    // size is total width.
+    // gap between stars
+    const starCount = 5;
+    const gap = size * 0.05;
+    const starW = (size - (gap * (starCount - 1))) / starCount;
+    const starRadius = starW / 2;
+    
+    // x is center of the GROUP? Or left?
+    // Let's assume x is center to match other apis
+    const startX = x - (size / 2) + starRadius;
+
+    ctx.save();
+    
+    for (let i = 0; i < starCount; i++) {
+        const sx = startX + i * (starW + gap);
+        const val = Math.max(0, Math.min(1, rating - i));
+        
+        drawSingleLinearStar(ctx, sx, y, starRadius, val, color);
+    }
+    
+    ctx.restore();
+}
+
+function drawSingleLinearStar(ctx, x, y, radius, fillPct, color) {
+    ctx.save();
+    ctx.translate(x, y);
+
+    ctx.beginPath();
+    const spikes = 5;
+    const outerRadius = radius;
+    const innerRadius = radius * 0.4;
+    let rot = Math.PI / 2 * 3;
+    const step = Math.PI / spikes;
+
+    ctx.moveTo(0, 0 - outerRadius);
+    for (let i = 0; i < spikes; i++) {
+        let x = Math.cos(rot) * outerRadius;
+        let y = Math.sin(rot) * outerRadius;
+        ctx.lineTo(x, y);
+        rot += step;
+
+        x = Math.cos(rot) * innerRadius;
+        y = Math.sin(rot) * innerRadius;
+        ctx.lineTo(x, y);
+        rot += step;
+    }
+    ctx.lineTo(0, 0 - outerRadius);
+    ctx.closePath();
+    
+    // Fill Background (Empty/Outline or very faint)
+    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+    ctx.fill(); // faint backing
+
+    // Fill Foreground
+    if (fillPct > 0) {
+        ctx.save();
+        ctx.clip();
+        
+        ctx.fillStyle = color;
+        const fillW = (radius * 2) * fillPct;
+        ctx.fillRect(-radius, -radius, fillW, radius * 2);
+        
+        ctx.restore();
+    }
+    
+    // Outline
+    ctx.strokeStyle = color; // Outline matches fill color but maybe thinner?
+    // Or maybe outline should be dark?
+    // User said "color for stars should be the same off-white".
+    // Usually that means the fill. The outline helps visibility.
+    // Let's make outline faint version of color? Or standard dark?
+    // Let's use the color itself for stroke but low opacity if empty?
+    // Actually standard rating stars often have a border.
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.restore();
+}
+
 export function getBookColor(book) {
     // Consistent random color based on title hash
     const str = book.title || "book";
@@ -180,7 +354,14 @@ function drawMaterialTexture(ctx, w, h, materialType) {
     ctx.restore();
 }
 
-export function createSpineTexture(width, height, colorObj, book) {
+
+export function getBookMaterial(book) {
+    const matTypes = ['Leather', 'Cloth', 'Buckram', 'Paper', 'Leather', 'Cloth'];
+    const titleHash = (book.title || '').length + (parseInt(book.year) || 0);
+    return matTypes[titleHash % matTypes.length];
+}
+
+export function createSpineTexture(width, height, colorObj, book, materialTypeOverride = null, coverImage = null) {
     const canvas = document.createElement('canvas');
     const aspect = width / height;
     const h = 1024;
@@ -210,9 +391,7 @@ export function createSpineTexture(width, height, colorObj, book) {
     ctx.fillRect(0, 0, w, h);
 
     // --- 2. Material Texture Overlay ---
-    const matTypes = ['Leather', 'Cloth', 'Buckram', 'Paper', 'Leather', 'Cloth'];
-    const titleHash = (book.title || '').length + (parseInt(book.year) || 0);
-    const material = matTypes[titleHash % matTypes.length];
+    const material = materialTypeOverride || getBookMaterial(book);
 
     drawMaterialTexture(ctx, w, h, material);
 
@@ -231,9 +410,30 @@ export function createSpineTexture(width, height, colorObj, book) {
     ctx.fillStyle = patternColor;
     ctx.lineWidth = Math.max(2, w * 0.05);
     const cx = w / 2;
-    const topY = w * 0.6;
-    const botY = h - (w * 0.6);
+    // Standardize star size (e.g., 60px), but limit to width for thin books
+    const targetStarSize = 60; 
+    const starSize = Math.min(targetStarSize, w * 0.85);
+    const starY = 50; // Fixed distance from top edge
+
+    // Shift top genre icon down. 
+    // It should be below the star. 
+    // Star ends at roughly starY + starSize/2.
+    // Padding 20.
+    // Icon starts at starY + starSize/2 + 20 + iconSize/2
     const iconSize = w * 0.5;
+    const topY = starY + (starSize / 2) + 30 + (iconSize / 2);
+    
+    // Bottom Icon Position (If cover is present, we move this or hide it? Let's hide bottom icon if cover exists)
+    // Actually, let's keep it if space permits, but cover usually takes bottom spot.
+    // If coverImage is provided, we skip bottom genre icon.
+    const botY = h - (w * 0.6);
+
+    // Draw Rating Star
+    // Top of spine (near 0)
+    const rating = book.average_rating || 0;
+    if (rating > 0) {
+        drawRatingStar(ctx, cx, starY, starSize, rating);
+    }
 
     if (genre === 'Sci-Fi') {
         // Tech
@@ -320,6 +520,45 @@ export function createSpineTexture(width, height, colorObj, book) {
         ctx.fillRect(0, by - 2, w, 4);
     }
     ctx.restore();
+
+    // --- Draw Cover Image on Spine (if available) ---
+    if (coverImage) {
+        // Draw at bottom
+        // Constraint: max width = w (minus padding), max height = ?
+        // We want it visible but essentially a thumbnail.
+        const padding = w * 0.1;
+        const availableW = w - (padding * 2);
+        
+        // Image aspect ratio
+        const imgAspect = coverImage.width / coverImage.height;
+        
+        let targetW = availableW;
+        let targetH = targetW / imgAspect;
+        
+        // If too tall, limit height
+        if (targetH > h * 0.2) {
+            targetH = h * 0.2;
+            targetW = targetH * imgAspect;
+        }
+
+        const dx = (w - targetW) / 2;
+        const dy = h - targetH - padding;
+
+        ctx.save();
+        // Add shadow/border for realism
+        ctx.shadowColor = 'rgba(0,0,0,0.5)';
+        ctx.shadowBlur = 4;
+        ctx.shadowOffsetY = 2;
+        
+        ctx.drawImage(coverImage, dx, dy, targetW, targetH);
+        
+        // Border
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+        ctx.strokeRect(dx, dy, targetW, targetH);
+        
+        ctx.restore();
+    }
 
     // --- 4. Aging ---
     if (age > 0) {

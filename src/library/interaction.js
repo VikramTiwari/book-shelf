@@ -1,12 +1,12 @@
 import * as THREE from 'three';
 import { camera, controls, renderer, scene } from './LibraryApp.js';
 import { navigationGrid, bookMeshes, scrollBounds } from './view.js';
-import { booksData } from './data.js';
 import { formatDate } from './utils.js';
 import { CONFIG } from './config.js';
 
 let currentFocus = { row: 0, col: 0 };
 let selectedBook = null;
+let isFlipped = false;
 let raycaster = new THREE.Raycaster();
 let mouse = new THREE.Vector2();
 
@@ -78,6 +78,7 @@ function onMouseClick(event) {
     if (!app || app.classList.contains('hidden')) return;
 
     if (event.target.closest('.book-details')) return;
+    if (event.target.closest('.nav-buttons')) return;
     if (!_camera) return;
 
     raycaster.setFromCamera(mouse, _camera);
@@ -85,8 +86,14 @@ function onMouseClick(event) {
 
     if (intersects.length > 0) {
         const target = intersects[0].object.parent;
-        if (target && target.userData.id !== undefined) {
-            selectBook(target);
+        if (target && target.userData && target.userData.id !== undefined) {
+             if (selectedBook === target) {
+                 // Already selected, toggle flip
+                 toggleFlip();
+             } else {
+                 // Select new book
+                 selectBook(target);
+             }
         }
     } else {
         deselectBook();
@@ -118,51 +125,37 @@ function selectBook(mesh) {
     targetPos.z += 4;
     targetPos.y += 0.5;
 
-    const targetRot = new THREE.Euler(0, -Math.PI / 2, 0);
-
+    // Front facing (0,0,0) - Show the cover
+    const targetRot = new THREE.Euler(0, 0, 0);
+    const targetScale = mesh.userData.originalScale.clone().multiplyScalar(1.3);
+    
     mesh.userData.targetPos = targetPos;
     mesh.userData.targetRot = targetRot;
+    mesh.userData.targetScale = targetScale;
     mesh.userData.isAnimating = true;
+    mesh.userData.isSelected = true;
+    isFlipped = false;
+
+
 
     loadCoverTexture(mesh);
 
-    if (booksData && booksData[mesh.userData.id]) {
-        showDetails(booksData[mesh.userData.id]);
-        
+    // Use userData directly
+    // Use userData directly
+    if (mesh.userData) {
         // Update URL
         const newUrl = new URL(window.location);
         newUrl.searchParams.set('book', mesh.userData.id);
         window.history.replaceState(null, '', newUrl);
-        if (booksData[mesh.userData.id].title) {
-             document.title = `Vik's Books | ${booksData[mesh.userData.id].title}`;
+        if (mesh.userData.title) {
+             document.title = `Vik's Books | ${mesh.userData.title}`;
         }
     }
 }
 
 function loadCoverTexture(mesh) {
-    if (mesh.userData.id !== undefined && booksData[mesh.userData.id]) {
-        const book = booksData[mesh.userData.id];
-        ['CoverRight', 'CoverLeft'].forEach(partName => {
-            const coverMesh = mesh.children.find(c => c.name === partName);
-            if (coverMesh) {
-                const coverMat = coverMesh.material;
-                if (book.cover_url && !book.cover_url.includes('placehold.co') && !coverMat.map) {
-                    const year = parseInt(book.year) || new Date().getFullYear();
-                    const age = Math.max(0, new Date().getFullYear() - year);
-                    const ageFactor = Math.min(age, 100) / 100;
-
-                    const tint = new THREE.Color(1, 1, 1).lerp(new THREE.Color(0.85, 0.75, 0.6), ageFactor * 0.9);
-                    coverMat.color.copy(tint);
-
-                    const loader = new THREE.TextureLoader();
-                    loader.load(book.cover_url, (texture) => {
-                        texture.colorSpace = THREE.SRGBColorSpace;
-                        coverMat.map = texture;
-                        coverMat.needsUpdate = true;
-                    });
-                }
-            }
-        });
+    if (mesh.userData && typeof mesh.userData.loadTexture === 'function') {
+        mesh.userData.loadTexture();
     }
 }
 
@@ -173,78 +166,36 @@ export function deselectBook() {
     const mesh = selectedBook;
     mesh.userData.targetPos = mesh.userData.originalPos;
     mesh.userData.targetRot = mesh.userData.originalRot;
+    mesh.userData.targetScale = mesh.userData.originalScale;
     mesh.userData.isAnimating = true;
+    mesh.userData.isSelected = false;
 
     selectedBook = null;
-    hideDetails();
     
     // Clear URL
     const newUrl = new URL(window.location);
     newUrl.searchParams.delete('book');
     window.history.replaceState(null, '', newUrl);
     document.title = "Vik's Books";
+
+    isFlipped = false;
 }
 
-function showDetails(book) {
-    // Ensure we scope to library-app
-    const container = document.getElementById('library-app');
-    if (!container) return;
+export function toggleFlip() {
+    if (!selectedBook) return;
     
-    const el = container.querySelector('.book-details');
-    if(!el) return;
-
-    if (selectedBook && _camera) {
-        const pos = selectedBook.position.clone();
-        pos.project(_camera);
-        if (pos.x > 0) {
-            el.classList.add('position-left');
-        } else {
-            el.classList.remove('position-left');
-        }
-    }
-
-    const titleEl = container.querySelector('#detail-title');
-    if(titleEl) {
-        titleEl.textContent = book.title;
-        if (book.fontName) titleEl.style.fontFamily = `"${book.fontName}", sans-serif`;
-        else titleEl.style.fontFamily = '';
-    }
+    isFlipped = !isFlipped;
+    const mesh = selectedBook;
     
-    const authorEl = container.querySelector('#detail-author');
-    if(authorEl) authorEl.textContent = book.author;
+    // Target rotation: 0 if front strings, PI if back
+    // Since we want to show the back cover, we rotate Y by 180 degrees (PI).
+    // Original rotation was 0,0,0 relative to parent for display?
+    // Actually in selectBook we set targetRot to (0,0,0).
+    // So for flip, we want (0, Math.PI, 0).
     
-    const yearEl = container.querySelector('#detail-year');
-    if(yearEl) yearEl.textContent = book.year ? `Published: ${book.year}` : "";
-    
-    const reviewEl = container.querySelector('#detail-review');
-    if(reviewEl) reviewEl.textContent = book.review ? `"${book.review}"` : "";
-
-    const dateRead = formatDate(book.date_read);
-    const dateAdded = formatDate(book.date_added);
-    const dateEl = container.querySelector('#detail-date');
-    if(dateEl) {
-        if (dateRead) {
-            dateEl.textContent = `Read on: ${dateRead}`;
-        } else if (dateAdded) {
-            dateEl.textContent = `Added on: ${dateAdded}`;
-        } else {
-            dateEl.textContent = "";
-        }
-    }
-
-    const ratingEl = container.querySelector('#detail-rating');
-    if(ratingEl) ratingEl.textContent = '★'.repeat(book.rating) + '☆'.repeat(5 - book.rating);
-    
-    el.classList.remove('hidden');
-}
-
-function hideDetails() {
-    const container = document.getElementById('library-app');
-    if (container) {
-        const el = container.querySelector('.book-details');
-        if (el) el.classList.add('hidden');
-    }
-    if (selectedBook) deselectBook();
+    const targetRot = new THREE.Euler(0, isFlipped ? Math.PI : 0, 0);
+    mesh.userData.targetRot = targetRot;
+    mesh.userData.isAnimating = true; 
 }
 
 function checkScrollPosition() {
@@ -275,7 +226,7 @@ function checkVisibleShelves() {
         const rowY = row[0].position.y;
         if (Math.abs(rowY - camY) < viewHeight) {
             const rightEnd = row[row.length - 1];
-            loadCoverTexture(rightEnd);
+            // loadCoverTexture(rightEnd); // Disable pre-loading to ensure single-book loading policy
         }
     });
 }
@@ -331,3 +282,5 @@ export function nudgeCamera(yAmount) {
         _controls.target.y += yAmount;
     }
 }
+
+
