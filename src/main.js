@@ -274,18 +274,19 @@ const urlParams = new URLSearchParams(window.location.search);
 const debugMode = urlParams.get('book') === '0';
 
 if (!debugMode) {
-    fetch(CSV_PATH)
-        .then(response => response.text())
-        .then(csvText => {
-            Papa.parse(csvText, {
-                header: true,
-                skipEmptyLines: true,
-                complete: function(results) {
-                    console.log('Loaded books:', results.data.length);
-                    processBooks(results.data);
-                }
-            });
+    Promise.all([
+        fetch(CSV_PATH).then(response => response.text()),
+        document.fonts.ready
+    ]).then(([csvText]) => {
+        Papa.parse(csvText, {
+            header: true,
+            skipEmptyLines: true,
+            complete: function(results) {
+                console.log('Loaded books:', results.data.length);
+                processBooks(results.data);
+            }
         });
+    });
 } else {
     console.log("Debug Mode: Books disabled.");
 }
@@ -317,12 +318,12 @@ function processBooks(data) {
         
         mesh.position.set(xOffset, yOffset, 0);
         
-        // Store metadata
-        mesh.userData = { 
+        // Store metadata (Merge with existing userData)
+        Object.assign(mesh.userData, { 
             id: book['Book Id'], 
             isbn: book['ISBN13'] || book['ISBN'],
             title: book['Title']
-        };
+        });
 
         scene.add(mesh);
         allBookMeshes.push(mesh);

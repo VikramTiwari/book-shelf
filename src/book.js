@@ -205,7 +205,7 @@ export function createBook(bookData) {
                 
                 // Recalculate material properties for image
                 const visualRoughness = Math.min(1.0, 0.5 + addedRoughness);
-                const newMat = frontMesh.material[4].clone(); // Clone current pz material
+                const newMat = coverMesh.material.clone(); 
                 
                 newMat.map = tex;
                 newMat.roughness = visualRoughness;
@@ -215,8 +215,8 @@ export function createBook(bookData) {
                 if (age > 40) newMat.color.setHex(0xfffff0);
                 if (age > 80) newMat.color.lerp(new THREE.Color(0xc0b090), 0.2);
                 
-                frontMesh.material[4] = newMat;
-                frontMesh.material.needsUpdate = true;
+                coverMesh.material = newMat;
+                coverMesh.material.needsUpdate = true;
             });
         }
     };
