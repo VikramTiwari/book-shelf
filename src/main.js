@@ -54,25 +54,49 @@ async function stopCarouselView() {
 }
 
 // Router Logic
+function getBasePath() {
+    let path = window.location.pathname;
+    // Strip trailing slash if present (unless root, but covered below)
+    if (path.endsWith('/')) {
+        path = path.slice(0, -1);
+    }
+    
+    // Check for known sub-routes and strip them
+    // Note: We check longest matches first if there were overlapping ones, but here unique.
+    const suffixes = ['/library', '/carousel', '/index.html'];
+    for (const suffix of suffixes) {
+        if (path.endsWith(suffix)) {
+            return path.substring(0, path.length - suffix.length);
+        }
+    }
+    
+    return path;
+}
+
 async function handleRoute() {
     const path = window.location.pathname;
-    const urlParams = new URLSearchParams(window.location.search);
-
+    const basePath = getBasePath();
+    
+    // Construct expected paths
+    const libraryPath = basePath + '/library';
+    const carouselPath = basePath + '/carousel';
+    
     // Redirect Root to Preference
-    if (path === '/' || path === '/index.html') {
+    // Matches: basePath (empty or /books), basePath/, basePath/index.html
+    if (path === basePath || path === basePath + '/' || path === basePath + '/index.html') {
         const pref = localStorage.getItem('preferredView');
         const url = new URL(window.location);
         if (pref === 'library') {
-            url.pathname = '/library';
+            url.pathname = libraryPath;
         } else {
-            url.pathname = '/carousel';
+            url.pathname = carouselPath;
         }
         window.history.replaceState({}, '', url);
         handleRoute(); // Re-run with new path
         return;
     }
 
-    if (path === '/library') {
+    if (path === libraryPath) {
         if (currentView !== 'library') {
             await stopCarouselView();
             await loadLibraryView();
@@ -80,7 +104,8 @@ async function handleRoute() {
             updateToggleBtnState('library');
         }
     } else {
-        // Default to carousel for /carousel or / or anything else
+        // Default to carousel for /carousel or unknown (fallback) 
+        // We treat everything else as Carousel basically, which is safe.
         if (currentView !== 'carousel') {
             await stopLibraryView();
             await loadCarouselView();
@@ -108,44 +133,25 @@ handleRoute();
 
 // Handle Back/Forward
 window.addEventListener('popstate', async () => {
-    // Force init to ensure URL sync happens even if view is same
-    const path = window.location.pathname;
-    if (path === '/library') {
-        if (currentView !== 'library') {
-             await stopCarouselView();
-             await loadLibraryView();
-             currentView = 'library';
-             updateToggleBtnState('library');
-        } else {
-             await loadLibraryView();
-        }
-    } else {
-        if (currentView !== 'carousel') {
-             await stopLibraryView();
-             await loadCarouselView();
-             currentView = 'carousel';
-             updateToggleBtnState('carousel');
-        } else {
-             await loadCarouselView();
-        }
-    }
+    handleRoute(); // Reuse logic
 });
 
 if (toggleBtn) {
     toggleBtn.addEventListener('click', () => {
         const url = new URL(window.location);
         url.search = ''; // Clear query params on switch logic
+        const basePath = getBasePath();
         
         if (currentView === 'carousel') {
             // Switch to Library
             localStorage.setItem('preferredView', 'library');
-            url.pathname = '/library';
+            url.pathname = basePath + '/library';
             window.history.pushState({}, '', url);
             handleRoute();
         } else {
             // Switch to Carousel
             localStorage.setItem('preferredView', 'carousel');
-            url.pathname = '/carousel';
+            url.pathname = basePath + '/carousel';
             window.history.pushState({}, '', url);
             handleRoute();
         }
