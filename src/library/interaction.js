@@ -140,7 +140,13 @@ function selectBook(mesh) {
 
     loadCoverTexture(mesh);
 
-    // Use userData directly
+    // Animate Book to Center of View
+    // We want the book to move to where the camera is looking (controls.target.x)
+    // The camera doesn't move, the book moves to it.
+    if (_controls) {
+        mesh.userData.targetPos.x = _controls.target.x;
+    }
+
     // Use userData directly
     if (mesh.userData) {
         // Update URL
