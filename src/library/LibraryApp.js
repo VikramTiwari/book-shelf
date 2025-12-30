@@ -94,7 +94,7 @@ export function initLibrary() {
 
     // HDR Environment
     new RGBELoader()
-        .setPath('/') 
+        .setPath('') 
         .load('environment.hdr', function (texture) {
             texture.mapping = THREE.EquirectangularReflectionMapping;
             scene.environment = texture;

@@ -51,7 +51,7 @@ export function initCarousel() {
 
     // HDR Environment
     new HDRLoader()
-        .setPath('/')
+        .setPath('')
         .load('environment.hdr', function (texture) {
             texture.mapping = THREE.EquirectangularReflectionMapping;
             scene.environment = texture;

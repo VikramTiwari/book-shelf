@@ -1,12 +1,14 @@
 import './style.css';
-import { initLibrary, stopLibrary } from './library/LibraryApp.js';
-import { initCarousel, stopCarousel } from './carousel/CarouselApp.js';
 import { loadAllBooks } from './common/data.js';
 import { initSearch } from './common/search.js';
 
 // Setup View Switching Logic
 const toggleBtn = document.getElementById('view-toggle');
 let currentView = 'carousel'; // 'carousel' | 'library'
+
+// Module Cache
+let carouselModule = null;
+let libraryModule = null;
 
 // Initialize Search
 loadAllBooks().then(books => {
@@ -18,15 +20,41 @@ loadAllBooks().then(books => {
         
         // Trigger view update
         if (currentView === 'library') {
-             initLibrary();
+             loadLibraryView();
         } else {
-             initCarousel();
+             loadCarouselView();
         }
     });
 });
 
+async function loadLibraryView() {
+    if (!libraryModule) {
+        libraryModule = await import('./library/LibraryApp.js');
+    }
+    libraryModule.initLibrary();
+}
+
+async function stopLibraryView() {
+    if (libraryModule) {
+        libraryModule.stopLibrary();
+    }
+}
+
+async function loadCarouselView() {
+    if (!carouselModule) {
+        carouselModule = await import('./carousel/CarouselApp.js');
+    }
+    carouselModule.initCarousel();
+}
+
+async function stopCarouselView() {
+    if (carouselModule) {
+        carouselModule.stopCarousel();
+    }
+}
+
 // Router Logic
-function handleRoute() {
+async function handleRoute() {
     const path = window.location.pathname;
     const urlParams = new URLSearchParams(window.location.search);
 
@@ -44,20 +72,18 @@ function handleRoute() {
         return;
     }
 
-    const bookId = urlParams.get('book');
-
     if (path === '/library') {
         if (currentView !== 'library') {
-            stopCarousel();
-            initLibrary();
+            await stopCarouselView();
+            await loadLibraryView();
             currentView = 'library';
             updateToggleBtnState('library');
         }
     } else {
         // Default to carousel for /carousel or / or anything else
         if (currentView !== 'carousel') {
-            stopLibrary();
-            initCarousel();
+            await stopLibraryView();
+            await loadCarouselView();
             currentView = 'carousel';
             updateToggleBtnState('carousel');
         }
@@ -81,26 +107,26 @@ currentView = null;
 handleRoute();
 
 // Handle Back/Forward
-window.addEventListener('popstate', () => {
+window.addEventListener('popstate', async () => {
     // Force init to ensure URL sync happens even if view is same
     const path = window.location.pathname;
     if (path === '/library') {
         if (currentView !== 'library') {
-             stopCarousel();
-             initLibrary();
+             await stopCarouselView();
+             await loadLibraryView();
              currentView = 'library';
              updateToggleBtnState('library');
         } else {
-             initLibrary();
+             await loadLibraryView();
         }
     } else {
         if (currentView !== 'carousel') {
-             stopLibrary();
-             initCarousel();
+             await stopLibraryView();
+             await loadCarouselView();
              currentView = 'carousel';
              updateToggleBtnState('carousel');
         } else {
-             initCarousel();
+             await loadCarouselView();
         }
     }
 });
