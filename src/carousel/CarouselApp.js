@@ -172,6 +172,11 @@ function updateLayout() {
     });
 }
 
+const scratchVector3A = new THREE.Vector3();
+const scratchVector3B = new THREE.Vector3();
+const scratchVector3C = new THREE.Vector3(); // For scale
+const scratchQuaternion = new THREE.Quaternion();
+
 function animate() {
     if (!isActive) return;
     animationId = requestAnimationFrame(animate);
@@ -194,30 +199,81 @@ function animate() {
     // Camera & Scaling
     if (allBookMeshes.length > 0 && allBookMeshes[currentBookIndex]) {
         const targetBook = allBookMeshes[currentBookIndex];
-        const targetPos = new THREE.Vector3(
+        
+        // REUSE VECTORS: Camera Target Logic
+        const isMobile = window.innerWidth < 768;
+        const cameraZOffset = isMobile ? 2.2 : 0.9;
+        
+        // Target Pos
+        scratchVector3A.set(
             targetBook.position.x,
             targetBook.position.y,
-            targetBook.position.z + (window.innerWidth < 768 ? 2.2 : 0.9)
+            targetBook.position.z + cameraZOffset
         );
-        camera.position.lerp(targetPos, 0.05);
+        camera.position.lerp(scratchVector3A, 0.05);
 
-        const targetLookAt = new THREE.Vector3(targetBook.position.x, targetBook.position.y, targetBook.position.z);
-        controls.target.lerp(targetLookAt, 0.05);
+        // LookAt
+        scratchVector3A.set(targetBook.position.x, targetBook.position.y, targetBook.position.z);
+        controls.target.lerp(scratchVector3A, 0.05);
         
         window.currentBookMesh = targetBook;
 
-        const isMobile = window.innerWidth < 768;
+        // VISIBILITY CULLING & OPTIMIZED LOOP
+        const WINDOW_SIZE = 15; // Books to show on each side
+        const startIndex = Math.max(0, currentBookIndex - WINDOW_SIZE);
+        const endIndex = Math.min(allBookMeshes.length - 1, currentBookIndex + WINDOW_SIZE);
+
         const selectedScale = isMobile ? 1.6 : 1.0;
         const sideScale = isMobile ? 0.5 : 0.7;
 
-        allBookMeshes.forEach((mesh, index) => {
-            const isSelected = index === currentBookIndex;
-            const targetScale = isSelected ? selectedScale : sideScale; 
-            mesh.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.1);
+        // Hide books outside window
+        // Note: For extreme optimization, we'd track previous window and only update edges.
+        // But iterating all to ensure hidden is safe if array isn't massive (100-500 ok, 5000+ bad).
+        // If we have thousands, we must loop only relevant indices.
+        // Assuming < 1000 books for now, but let's be smart: 
+        // We only touch visible meshes. If we need to hide others, do it once or track them.
+        // Simplest "Safe" method: Iterate ONLY window, set Visible=true.
+        // But we need to ensure others are Visible=false.
+        // We can do this by keeping a 'lastVisibleRange' and hiding those that fell out.
+        // Or just looping all? No, looping all defeats the purpose.
+        // Let's rely on the fact that we only rendered ALL initially. 
+        // So we should hide everyone once? No.
+        // Strategy: Iterate 'previouslyVisible' set -> Hide. Then Iterate 'currentWindow' -> Show & Animate.
+        // Or simpler: iterate allBookMeshes[i].visible = false outside loop? No excessive.
+        // Refined: We know indices.
+        // Let's just track the rendered range.
+        const prevStart = window.renderedStart || 0;
+        const prevEnd = window.renderedEnd || allBookMeshes.length - 1;
 
-            const targetZ = isSelected && isMobile ? 1.0 : 0.0;
-            mesh.position.z += (targetZ - mesh.position.z) * 0.1;
-        });
+        // Hide items no longer in window
+        for (let i = prevStart; i <= prevEnd; i++) {
+             if (i < startIndex || i > endIndex) {
+                 if (allBookMeshes[i]) allBookMeshes[i].visible = false;
+             }
+        }
+        
+        // Update Window
+        window.renderedStart = startIndex;
+        window.renderedEnd = endIndex;
+
+        for (let i = startIndex; i <= endIndex; i++) {
+            const mesh = allBookMeshes[i];
+            if (!mesh) continue;
+            
+            mesh.visible = true;
+
+            const isSelected = i === currentBookIndex;
+            const targetScaleVal = isSelected ? selectedScale : sideScale; 
+            
+            // Scale lerp
+            scratchVector3C.set(targetScaleVal, targetScaleVal, targetScaleVal);
+            mesh.scale.lerp(scratchVector3C, 0.1);
+
+            // Z Position lerp
+            const finalZ = (isSelected && isMobile) ? 1.0 : 0.0;
+            // Lerp manually to avoid vector creation for position checks
+            mesh.position.z += (finalZ - mesh.position.z) * 0.1;
+        }
     }
 
     renderer.render(scene, camera);
@@ -252,15 +308,58 @@ const debouncedTextureUpdate = debounce((index) => updateTextureWindow(index), 2
 
 function navigateToBook(index) {
     if (index < 0 || index >= allBookMeshes.length) return;
+    
+    // TELEPORT LOGIC
+    const distance = Math.abs(index - currentBookIndex);
+    const TELEPORT_THRESHOLD = 10;
+    
+    const isTeleporting = distance > TELEPORT_THRESHOLD;
+    
     currentBookIndex = index;
     targetRotationBase = 0.0;
     const bookData = allBookMeshes[index].userData;
+    
     if (bookData && bookData.id) {
         const newUrl = new URL(window.location);
         newUrl.searchParams.set('book', bookData.id);
         window.history.replaceState(null, '', newUrl);
         if (bookData.title) document.title = `Vik's Books | ${bookData.title}`;
     }
+    
+    if (isTeleporting) {
+        console.log(`Teleporting to book ${index}`);
+        
+        // 1. Immediately Snap Camera
+        const targetBook = allBookMeshes[index];
+        const isMobile = window.innerWidth < 768;
+        const cameraZOffset = isMobile ? 2.2 : 0.9;
+
+        // Snap Camera
+        camera.position.set(
+            targetBook.position.x,
+            targetBook.position.y,
+            targetBook.position.z + cameraZOffset
+        );
+        controls.target.set(
+            targetBook.position.x, 
+            targetBook.position.y, 
+            targetBook.position.z
+        );
+        
+        // 2. Reset Flow / Animation Momentum
+        targetFlow = 0;
+        currentFlow = 0;
+        
+        // 3. Immediately Update Visibility Window (Hide old, Show new)
+        // We can just clear all visibility to be safe, or let the next frame handle it.
+        // Setting globals ensures next animate frame picks it up correctly.
+        // It's safer to let animate() handle the visibility update to reuse logic,
+        // but we just snapped camera so we won't see the "travel".
+        
+        // Force update of current mesh global immediately for any other logic
+        window.currentBookMesh = targetBook;
+    }
+
     debouncedTextureUpdate(index);
 }
 
