@@ -64,22 +64,40 @@ async function main() {
         const existingBook = existingDataMap.get(bookId);
         if (existingBook && (existingBook['Genres'] || existingBook['CoverUrl'])) {
             // Optimistic update for existing books (no fetch)
-            const isbn = existingBook['ISBN13'] || existingBook['ISBN'];
+            // MERGE LOGIC: Start with FRESH book data (ratings, status, title updates)
+            const mergedBook = { ...book };
+
+            // Restore enriched fields from existing data
+            if (existingBook['Genres']) mergedBook['Genres'] = existingBook['Genres'];
+            
+            // Restore and potentially enhance covers
+            let existingCoverUrl = existingBook['CoverUrl'] || '';
+            
+            // Re-run the lightweight ISBN check to ensure we have the OL cover if possible
+            // (In case logic changed or it was missed, though usually redundant if purely static)
+            // Actually, let's just use the existing CoverUrl as the base.
+            
+            const isbn = book['ISBN13'] || book['ISBN'];
             if (isbn) {
                 const cleanIsbn = isbn.replace(/[="]/g, '').trim();
                 if (cleanIsbn) {
-                    let urls = existingBook['CoverUrl'] ? existingBook['CoverUrl'].split('|') : [];
+                    let urls = existingCoverUrl ? existingCoverUrl.split('|') : [];
                     const olUrl = `https://covers.openlibrary.org/b/isbn/${cleanIsbn}-L.jpg`;
                     if (!urls.includes(olUrl)) {
                         urls.push(olUrl);
                         // Clean
                         urls = [...new Set(urls)].filter(u => u);
-                        existingBook['CoverUrl'] = urls.join('|');
+                        existingCoverUrl = urls.join('|');
                     }
                 }
             }
-            delete existingBook['CoverSmallUrl'];
-            booksToKeep.push(existingBook);
+            
+            mergedBook['CoverUrl'] = existingCoverUrl;
+            
+            // Clean up internal keys if any were carried over (none expected from CSV parse but good practice)
+            delete mergedBook['CoverSmallUrl']; // Legacy cleanup if it existed
+            
+            booksToKeep.push(mergedBook);
         } else {
             booksToEnrich.push(book);
         }

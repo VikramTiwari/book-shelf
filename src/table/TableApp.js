@@ -75,7 +75,6 @@ function handleSort(column) {
 
 function getSortValue(book, column) {
     switch (column) {
-        case 'ID': return parseInt(book.id) || 0;
         case 'Title': return (book.title || '').toLowerCase();
         case 'Author': return (book.author || '').toLowerCase();
         case 'Published Year': return parseInt(book.original_year || book.year) || 0;
@@ -125,7 +124,7 @@ function renderTable() {
     table.style.fontSize = '14px';
 
     // Headers
-    const headers = ['ID', 'Title', 'Author', 'Published Year', 'Activity', 'Date', 'Genre', 'Avg ★', 'Pages'];
+    const headers = ['Date', 'Activity', 'Title', 'Avg ★', 'Pages', 'Published Year', 'Author', 'Genre'];
     const thead = document.createElement('thead');
     const trHead = document.createElement('tr');
     headers.forEach(h => {
@@ -168,15 +167,14 @@ function renderTable() {
         const activityName = book.date_read ? 'Read' : 'Added';
 
         const fields = [
-            book.id,
-            book.title,
-            book.author,
-            book.original_year || book.year || '-', 
-            activityName,
             dateDisplay,
-            book.genre || '-',
+            activityName,
+            book.title,
             book.average_rating || '-',
-            book.pages || '-'
+            book.pages || '-',
+            book.original_year || book.year || '-', // Prefer original, fallback to general year
+            book.author,
+            book.genre || '-'
         ];
 
         fields.forEach(f => {
