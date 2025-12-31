@@ -9,6 +9,7 @@ let currentView = 'carousel'; // 'carousel' | 'library'
 // Module Cache
 let carouselModule = null;
 let libraryModule = null;
+let tableModule = null;
 
 // Initialize Search
 loadAllBooks().then(books => {
@@ -53,6 +54,19 @@ async function stopCarouselView() {
     }
 }
 
+async function loadTableView() {
+    if (!tableModule) {
+        tableModule = await import('./table/TableApp.js');
+    }
+    tableModule.initTable();
+}
+
+async function stopTableView() {
+    if (tableModule) {
+        tableModule.stopTable();
+    }
+}
+
 // Router Logic
 function getBasePath() {
     let path = window.location.pathname;
@@ -63,7 +77,7 @@ function getBasePath() {
     
     // Check for known sub-routes and strip them
     // Note: We check longest matches first if there were overlapping ones, but here unique.
-    const suffixes = ['/library', '/carousel', '/index.html'];
+    const suffixes = ['/library', '/carousel', '/index.html', '/db'];
     for (const suffix of suffixes) {
         if (path.endsWith(suffix)) {
             return path.substring(0, path.length - suffix.length);
@@ -80,6 +94,7 @@ async function handleRoute() {
     // Construct expected paths
     const libraryPath = basePath + '/library';
     const carouselPath = basePath + '/carousel';
+    const dbPath = basePath + '/db';
     
     // Redirect Root to Preference
     // Matches: basePath (empty or /books), basePath/, basePath/index.html
@@ -96,9 +111,18 @@ async function handleRoute() {
         return;
     }
 
-    if (path === libraryPath) {
+    if (path === dbPath) {
+        if (currentView !== 'table') {
+            await stopLibraryView();
+            await stopCarouselView();
+            await loadTableView();
+            currentView = 'table';
+            // Toggle button is hidden by TableApp, so we don't need to update state
+        }
+    } else if (path === libraryPath) {
         if (currentView !== 'library') {
             await stopCarouselView();
+            await stopTableView();
             await loadLibraryView();
             currentView = 'library';
             updateToggleBtnState('library');
@@ -108,6 +132,7 @@ async function handleRoute() {
         // We treat everything else as Carousel basically, which is safe.
         if (currentView !== 'carousel') {
             await stopLibraryView();
+            await stopTableView();
             await loadCarouselView();
             currentView = 'carousel';
             updateToggleBtnState('carousel');

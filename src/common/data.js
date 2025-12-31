@@ -123,6 +123,7 @@ function parseCSV(text) {
                     pages: parseInt(getValue(idxPages)) || 300,
                     shelf: getValue(idxShelf),
                     year: getValue(idxYear) || getValue(idxOrigYear) || '',
+                    original_year: getValue(idxOrigYear) || getValue(idxYear) || '',
                     genre: getValue(idxGenre) || getValue(idxGenreFallback) || '',
                     isbn: isbn,
                     average_rating: parseFloat(getValue(idxAvgRating)) || 0
